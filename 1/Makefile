@@ -2,7 +2,7 @@ CC=gcc
 LIBS=-lpthread
 FLAGS=-Wall
 
-TARGETS=1.1 1.2a-b 1.2c 1.2d 1.2e 1.2f 1.3a 1.3b 1.4a 1.4b 1.4c
+TARGETS=1.1 1.2a-b 1.2c 1.2d 1.2e 1.2f 1.3a 1.3b 1.4a 1.4b 1.4c 1.5a 1.5b
 
 all: $(TARGETS)
 
@@ -38,6 +38,12 @@ all: $(TARGETS)
 
 1.4c:
 	$(CC) $(FLAGS) -o 1.4c 1.4c.c $(LIBS)
+
+1.5a:
+	$(CC) $(FLAGS) -o 1.5a 1.5a.c $(LIBS)
+
+1.5b:
+	$(CC) $(FLAGS) -o 1.5b 1.5b.c $(LIBS)
 
 
 clean:
