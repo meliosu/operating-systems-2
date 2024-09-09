@@ -9,9 +9,9 @@
 #include <syscall.h>
 #include <unistd.h>
 
-#define STACK_SIZE (8 * 1024 * 1024)
+#include "1.6.h"
 
-typedef unsigned long mythread_t;
+#define STACK_SIZE (8 * 1024 * 1024)
 
 struct ctx {
     void *(*routine)(void *);
@@ -61,26 +61,6 @@ int mythread_create(
     }
 
     *thread = tid;
-
-    return 0;
-}
-
-void *entry(void *_) {
-    printf("hello\n");
-    return NULL;
-}
-
-int main() {
-    int err;
-    mythread_t thread;
-
-    err = mythread_create(&thread, entry, NULL);
-    if (err) {
-        printf("error creating thread: %s\n", strerror(err));
-        return -1;
-    }
-
-    sleep(1);
 
     return 0;
 }
