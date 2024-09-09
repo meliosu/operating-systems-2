@@ -3,7 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 
-void *routine(void *_) {
+void *thread(void *_) {
     printf("pthread ID: %lx\n", pthread_self());
 
     return NULL;
@@ -27,7 +27,7 @@ int main() {
     }
 
     while (1) {
-        err = pthread_create(&tid, &attr, routine, NULL);
+        err = pthread_create(&tid, &attr, thread, NULL);
         if (err) {
             printf("pthread_create: %s\n", strerror(err));
             return -1;

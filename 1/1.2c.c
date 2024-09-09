@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-void *routine(void *_) {
+void *thread(void *_) {
     return "hello world";
 }
 
@@ -10,7 +10,7 @@ int main() {
     pthread_t tid;
     int err;
 
-    err = pthread_create(&tid, NULL, routine, NULL);
+    err = pthread_create(&tid, NULL, thread, NULL);
     if (err) {
         printf("pthread_create: %s\n", strerror(err));
         return -1;

@@ -12,7 +12,7 @@ void cleanup(void *memory) {
     }
 }
 
-void *routine(void *memory) {
+void *thread(void *memory) {
     char *string = malloc(6);
 
     *(char **)memory = string;
@@ -32,7 +32,7 @@ int main() {
     int err;
     char *string = NULL;
 
-    err = pthread_create(&tid, NULL, routine, &string);
+    err = pthread_create(&tid, NULL, thread, &string);
     if (err) {
         printf("pthread_create: %s\n", strerror(err));
         return -1;

@@ -16,7 +16,7 @@ void debug_container(struct container *container) {
     printf("}\n");
 }
 
-void *routine(void *arg) {
+void *thread(void *arg) {
     struct container *container = arg;
     debug_container(container);
 
@@ -46,7 +46,7 @@ int main() {
     container->string = "hello";
     container->number = 42;
 
-    err = pthread_create(&tid, NULL, routine, container);
+    err = pthread_create(&tid, NULL, thread, container);
     if (err) {
         printf("pthread_create: %s\n", strerror(err));
         free(container);
