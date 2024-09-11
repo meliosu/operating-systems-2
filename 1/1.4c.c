@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,18 +39,25 @@ int main() {
         return -1;
     }
 
+    sleep(3);
+
     pthread_cleanup_push(cleanup, &string);
 
-    if (fgetc(stdin) > 0) {
-        err = pthread_cancel(tid);
-        if (err) {
-            printf("pthread_cancel: %s\n", strerror(err));
-            return -1;
-        }
-    } else {
-        printf("error reading from stdin\n");
+    err = pthread_cancel(tid);
+    if (err) {
+        printf("pthread_cancel: %s\n", strerror(err));
         return -1;
     }
+
+    void *status;
+
+    err = pthread_join(tid, &status);
+    if (err) {
+        printf("pthread_join: %s\n", strerror(err));
+        return -1;
+    }
+
+    assert(status == PTHREAD_CANCELED);
 
     pthread_cleanup_pop(1);
 
