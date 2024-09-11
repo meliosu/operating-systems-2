@@ -13,15 +13,13 @@
 
 #define STACK_SIZE (8 * 1024 * 1024)
 
-struct ctx {
-    void *(*routine)(void *);
-    void *arg;
-};
-
 int mythread_clone_entry(void *arg) {
-    struct ctx *ctx = arg;
+    struct thread_ctx *ctx = arg;
 
-    ctx->routine(ctx->arg);
+    void *ret = ctx->start(ctx->arg);
+
+    ctx->ret = ret;
+    ctx->exited = 1;
 
     return 0;
 }
@@ -33,7 +31,7 @@ int mythread_create(
         NULL,
         STACK_SIZE,
         PROT_READ | PROT_WRITE,
-        MAP_ANONYMOUS | MAP_STACK | MAP_PRIVATE,
+        MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK,
         -1,
         0
     );
@@ -42,17 +40,18 @@ int mythread_create(
         return errno;
     }
 
-    struct ctx ctx = {
-        .routine = start_routine,
-        .arg = arg,
-    };
+    struct thread_ctx *ctx = stack + STACK_SIZE - sizeof(struct thread_ctx);
+
+    ctx->start = start_routine;
+    ctx->arg = arg;
+    ctx->exited = 0;
 
     int tid = clone(
         mythread_clone_entry,
-        stack + STACK_SIZE / sizeof(void *),
+        stack + STACK_SIZE - sizeof(struct thread_ctx),
         CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD |
             CLONE_SYSVSEM,
-        &ctx
+        ctx
     );
 
     if (tid < 0) {
@@ -60,7 +59,7 @@ int mythread_create(
         return tid;
     }
 
-    *thread = tid;
+    *thread = ctx;
 
     return 0;
 }
