@@ -22,7 +22,7 @@ void *mythread(void *arg) {
     );
 
     printf(
-        "%-14s %-14d %-14d %-14d %-14ld\n",
+        "%-14s %-14d %-14d %-14d %-14lx\n",
         "",
         getpid(),
         getppid(),
@@ -49,7 +49,7 @@ void *mythread(void *arg) {
     );
 
     printf(
-        "%-14s %-14d %-14d %-14d %-14d\n\n",
+        "%-14s %-14d %-14d %-14d %-14d\n",
         "value",
         global,
         local_static,
@@ -79,7 +79,11 @@ int main() {
             return -1;
         }
 
-        sleep(5);
+        sleep(1);
+
+        printf("pthread_create returned: %lx\n\n", tid);
+
+        sleep(3);
 
         // err = pthread_join(tid, NULL);
         // if (err) {
