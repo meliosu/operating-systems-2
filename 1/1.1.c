@@ -1,9 +1,12 @@
 #define _GNU_SOURCE
+#include <assert.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+pthread_t last_pthread_self;
 
 int global = 1;
 
@@ -11,6 +14,8 @@ void *mythread(void *arg) {
     static int local_static = 10;
     const int local_const = 100;
     int local = 1000;
+
+    last_pthread_self = pthread_self();
 
     printf(
         "%-14s %-14s %-14s %-14s %-14s\n",
@@ -49,7 +54,7 @@ void *mythread(void *arg) {
     );
 
     printf(
-        "%-14s %-14d %-14d %-14d %-14d\n",
+        "%-14s %-14d %-14d %-14d %-14d\n\n",
         "value",
         global,
         local_static,
@@ -81,7 +86,7 @@ int main() {
 
         sleep(1);
 
-        printf("pthread_create returned: %lx\n\n", tid);
+        assert(pthread_equal(tid, last_pthread_self));
 
         sleep(3);
 
