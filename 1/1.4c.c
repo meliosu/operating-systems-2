@@ -6,24 +6,22 @@
 #include <unistd.h>
 
 void cleanup(void *memory) {
-    char *string = *(char **)memory;
-
-    if (string) {
-        free(string);
+    if (memory) {
+        free(memory);
     }
 }
 
-void *thread(void *memory) {
-    char *string = malloc(6);
+void *thread(void *_) {
+    char *string = strdup("hello");
 
-    *(char **)memory = string;
-
-    strcpy(string, "hello");
+    pthread_cleanup_push(cleanup, string);
 
     while (1) {
         printf("%s\n", string);
         sleep(1);
     }
+
+    pthread_cleanup_pop(1);
 
     return NULL;
 }
@@ -41,8 +39,6 @@ int main() {
 
     sleep(3);
 
-    pthread_cleanup_push(cleanup, &string);
-
     err = pthread_cancel(tid);
     if (err) {
         printf("pthread_cancel: %s\n", strerror(err));
@@ -58,8 +54,6 @@ int main() {
     }
 
     assert(status == PTHREAD_CANCELED);
-
-    pthread_cleanup_pop(1);
 
     return 0;
 }
