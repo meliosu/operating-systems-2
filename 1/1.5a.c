@@ -31,7 +31,9 @@ void *blocking_thread(void *_) {
 }
 
 void handler(int _) {
-    write(STDOUT_FILENO, "received SIGUSR1\n", 17);
+    char *msg = "handling thread: received SIGINT\n";
+
+    write(STDOUT_FILENO, msg, strlen(msg));
 }
 
 void *handling_thread(void *_) {
@@ -41,7 +43,7 @@ void *handling_thread(void *_) {
         .sa_handler = handler,
     };
 
-    err = sigaction(SIGUSR1, &act, NULL);
+    err = sigaction(SIGINT, &act, NULL);
     if (err) {
         perror("handling thread: sigaction");
         return NULL;
@@ -65,7 +67,7 @@ void *waiting_thread(void *_) {
         return NULL;
     }
 
-    err = sigaddset(&set, SIGUSR1);
+    err = sigaddset(&set, SIGQUIT);
     if (err) {
         perror("waiting thread: sigaddset");
         return NULL;
@@ -85,7 +87,7 @@ void *waiting_thread(void *_) {
         return NULL;
     }
 
-    printf("waiting thread: received signal %s\n", sigabbrev_np(sig));
+    printf("waiting thread: received SIG%s\n", sigabbrev_np(sig));
 
     return NULL;
 }
@@ -109,7 +111,7 @@ int main() {
     sleep(1);
     printf("sending signals to blocking thread...\n");
 
-    int signals[5] = {SIGUSR1, SIGUSR2, SIGIO, SIGALRM, SIGCHLD};
+    int signals[6] = {SIGINT, SIGQUIT, SIGIO, SIGALRM, SIGCHLD};
 
     for (int i = 0; i < 5; i++) {
         err = pthread_kill(tids[0], signals[i]);
@@ -121,17 +123,17 @@ int main() {
     }
 
     sleep(1);
-    printf("sending SIGUSR1 to handling thread...\n");
+    printf("sending SIGINT to handling thread...\n");
 
-    err = pthread_kill(tids[1], SIGUSR1);
+    err = pthread_kill(tids[1], SIGINT);
     if (err) {
         printf("pthread_kill on handling thread: %s\n", strerror(err));
     }
 
     sleep(1);
-    printf("sending SIGUSR1 to waiting thread...\n");
+    printf("sending SIGQUIT to waiting thread...\n");
 
-    err = pthread_kill(tids[2], SIGUSR1);
+    err = pthread_kill(tids[2], SIGQUIT);
     if (err) {
         printf("pthread_kill on waiting thread: %s\n", strerror(err));
     }

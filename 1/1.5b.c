@@ -72,7 +72,7 @@ int main() {
         for (int j = 0; j < 2; j++) {
             sleep(1);
             printf(
-                "sending signal %s to thread number %d\n",
+                "sending SIG%s to thread number %d\n",
                 sigabbrev_np(signals[j]),
                 i + 1
             );
