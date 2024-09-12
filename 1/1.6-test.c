@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -6,12 +7,20 @@
 
 void *entry(void *_) {
     printf("hello\n");
+    printf(
+        "thread: [pid: %d, ppid: %d, tid: %d]\n", getpid(), getppid(), gettid()
+    );
+
     return NULL;
 }
 
 int main() {
     int err;
     mythread_t thread;
+
+    printf(
+        "main: [pid: %d, ppid: %d, tid: %d]\n", getpid(), getppid(), gettid()
+    );
 
     err = mythread_create(&thread, entry, NULL);
     if (err) {
