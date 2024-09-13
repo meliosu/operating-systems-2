@@ -84,11 +84,9 @@ int main() {
             return -1;
         }
 
-        sleep(1);
+        sleep(3);
 
         assert(pthread_equal(tid, last_pthread_self));
-
-        sleep(3);
 
         // err = pthread_join(tid, NULL);
         // if (err) {
