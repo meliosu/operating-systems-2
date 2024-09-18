@@ -1,0 +1,11 @@
+build-main:
+    cc -c queue-threads.c
+
+run SYNC: build-main
+    cc -c -D{{SYNC}} queue.c
+    cc -o queue-threads queue.o queue-threads.o
+    ./queue-threads
+
+
+clean:
+    rm *.o queue-threads
