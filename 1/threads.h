@@ -10,7 +10,11 @@ struct thread_ctx {
     int canceled;
 };
 
+#ifdef THREADS_PRIVATE_INCLUDE
 typedef struct thread_ctx *thread_t;
+#else
+typedef unsigned long thread_t;
+#endif
 
 #define THREAD_CANCELED (void *)0x1
 

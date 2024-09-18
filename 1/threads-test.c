@@ -5,6 +5,16 @@
 
 #include "threads.h"
 
+#define TEST(name, test_fn)                                                    \
+    do {                                                                       \
+        printf("%-30s", "Testing " name "...");                                \
+        if (test_fn()) {                                                       \
+            printf("Failed\n");                                                \
+        } else {                                                               \
+            printf("Success\n");                                               \
+        }                                                                      \
+    } while (0);
+
 void *thread_cancelable(void *_) {
     while (1) {
         sleep(1);
@@ -160,40 +170,12 @@ int test_exit() {
 }
 
 int main() {
-    printf("Testing Join...    ");
-    if (test_join()) {
-        printf("Failed\n");
-    } else {
-        printf("Success\n");
-    }
 
-    printf("Testing Detach...    ");
-    if (test_detach()) {
-        printf("Failed\n");
-    } else {
-        printf("Success\n");
-    }
-
-    printf("Testing Cancel...    ");
-    if (test_cancel()) {
-        printf("Failed\n");
-    } else {
-        printf("Success\n");
-    }
-
-    printf("Testing Arg Passing...    ");
-    if (test_arg()) {
-        printf("Failed\n");
-    } else {
-        printf("Success\n");
-    }
-
-    printf("Testing Exit...    ");
-    if (test_exit()) {
-        printf("Failed\n");
-    } else {
-        printf("Success\n");
-    }
+    TEST("Join", test_join);
+    TEST("Detach", test_detach);
+    TEST("Cancel", test_cancel);
+    TEST("Arg Passing", test_arg);
+    TEST("Exit", test_exit);
 
     return 0;
 }

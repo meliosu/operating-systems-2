@@ -7,6 +7,7 @@
 #include <threads.h>
 #include <unistd.h>
 
+#define THREADS_PRIVATE_INCLUDE
 #include "threads.h"
 
 #define STACK_SIZE (8 * 1024 * 1024)
