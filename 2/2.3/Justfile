@@ -1,0 +1,8 @@
+build SYNC:
+    cc -c -g -D{{SYNC}} queue.c
+    cc -c -g main.c
+    cc -o main main.o queue.o
+
+
+clean:
+    rm *.o main
