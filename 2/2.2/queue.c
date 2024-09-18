@@ -10,12 +10,6 @@
 
 #include "queue.h"
 
-#define panic(fmt, args...)                                                    \
-    do {                                                                       \
-        printf(fmt, ##args);                                                   \
-        abort();                                                               \
-    } while (0);
-
 thread_local int err;
 
 void *qmonitor(void *arg) {
@@ -294,10 +288,10 @@ queue_t *queue_init(int max_count) {
     queue->add_attempts = queue->get_attempts = 0;
     queue->add_count = queue->get_count = 0;
 
-    err = pthread_create(&queue->qmonitor_tid, NULL, qmonitor, queue);
-    if (err) {
-        panic("queue_init: pthread_create: %s\n", strerror(err));
-    }
+    /*err = pthread_create(&queue->qmonitor_tid, NULL, qmonitor, queue);*/
+    /*if (err) {*/
+    /*    panic("queue_init: pthread_create: %s\n", strerror(err));*/
+    /*}*/
 
     return queue;
 }

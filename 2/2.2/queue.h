@@ -17,6 +17,12 @@
     #include <semaphore.h>
 #endif
 
+#define panic(fmt, args...)                                                    \
+    do {                                                                       \
+        printf(fmt, ##args);                                                   \
+        abort();                                                               \
+    } while (0);
+
 typedef struct _QueueNode {
     int val;
     struct _QueueNode *next;
