@@ -158,7 +158,7 @@ int main() {
     };
 
     for (int i = 0; i < 6; i++) {
-        err = pthread_create(&tid[i], NULL, threads[i], NULL);
+        err = pthread_create(&tid[i], NULL, threads[i], &queue);
         if (err) {
             panic("main: pthread_create: %s\n", strerror(err));
         }
