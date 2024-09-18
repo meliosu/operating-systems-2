@@ -1,14 +1,15 @@
 #define _GNU_SOURCE
 
 #include <pthread.h>
+#include <sched.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
-
-#include <pthread.h>
-#include <sched.h>
 
 #include "queue.h"
 
@@ -42,7 +43,41 @@ void report_inconsistency(int expected, int actual) {
     );
 }
 
+float timeval_to_ms(struct timeval *time) {
+    return (float)time->tv_sec * 1e3 + (float)time->tv_usec / 1e6;
+}
+
+void report_resources(void *thread_name) {
+    struct rusage rusage;
+    int err;
+
+    err = getrusage(RUSAGE_THREAD, &rusage);
+    if (err) {
+        printf("error getting resource usage\n");
+        return;
+    }
+
+    float user_ms = timeval_to_ms(&rusage.ru_utime);
+    float system_ms = timeval_to_ms(&rusage.ru_stime);
+    float ratio = system_ms / (system_ms + user_ms) * 100.0;
+
+    printf(
+        "%s: user=%.2fms, system=%.2fms, system/total=%.2f%%\n",
+        (char *)thread_name,
+        user_ms,
+        system_ms,
+        ratio
+    );
+}
+
 void *reader(void *arg) {
+    int err = pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+    if (err) {
+        panic("reader: setcanceltype: %s\n", strerror(err));
+    }
+
+    pthread_cleanup_push(report_resources, "reader");
+
     queue_t *queue = (queue_t *)arg;
 
     int expected = 0;
@@ -62,10 +97,18 @@ void *reader(void *arg) {
         expected = val + 1;
     }
 
+    pthread_cleanup_pop(1);
     return NULL;
 }
 
 void *writer(void *arg) {
+    int err = pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+    if (err) {
+        panic("writer: setcanceltype: %s\n", strerror(err));
+    }
+
+    pthread_cleanup_push(report_resources, "writer");
+
     queue_t *queue = (queue_t *)arg;
 
     int i = 0;
@@ -79,34 +122,65 @@ void *writer(void *arg) {
         i++;
     }
 
+    pthread_cleanup_pop(1);
     return NULL;
+}
+
+void handler(int _num) {
+    char buffer[1024];
+    report_resources(buffer);
+    write(STDOUT_FILENO, buffer, strlen(buffer));
+    pthread_exit(NULL);
 }
 
 int main() {
     pthread_t tid[2];
     queue_t *queue;
     int err;
+    pthread_attr_t attr;
 
     queue = queue_init(QUEUE_SIZE);
 
+    struct sigaction act = {
+        .sa_handler = handler,
+    };
+
     err = pthread_create(&tid[0], NULL, reader, queue);
     if (err) {
-        printf("pthread_create: %s\n", strerror(err));
-        return -1;
+        panic("pthread_create reader: %s\n", strerror(err));
     }
 
     err = pthread_create(&tid[1], NULL, writer, queue);
     if (err) {
-        printf("pthread_create: %s\n", strerror(err));
-        return -1;
+        panic("pthread_create writer: %s\n", strerror(err));
+    }
+
+    sleep(2);
+
+    printf("Resource Usage\n");
+
+    for (int i = 0; i < 2; i++) {
+        err = pthread_cancel(tid[i]);
+        if (err) {
+            panic("pthread_cancel: %s\n", strerror(err));
+        }
     }
 
     for (int i = 0; i < 2; i++) {
-        err = pthread_join(tid[i], NULL);
+        void *ret;
+
+        err = pthread_join(tid[i], &ret);
         if (err) {
-            printf("pthread_join: %s\n", strerror(err));
+            panic("pthread_join: %s\n", strerror(err));
+        }
+
+        if (ret != PTHREAD_CANCELED) {
+            panic("thread not canceled?\n");
         }
     }
+
+    printf("Queue Stats\n");
+    queue_print_stats(queue);
 
     return 0;
 }
