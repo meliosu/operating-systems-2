@@ -12,17 +12,6 @@
 
 thread_local int err;
 
-void *qmonitor(void *arg) {
-    queue_t *queue = (queue_t *)arg;
-
-    while (1) {
-        queue_print_stats(queue);
-        sleep(1);
-    }
-
-    return NULL;
-}
-
 int queue_add(queue_t *queue, int val) {
     queue->add_attempts++;
 
@@ -287,11 +276,6 @@ queue_t *queue_init(int max_count) {
 
     queue->add_attempts = queue->get_attempts = 0;
     queue->add_count = queue->get_count = 0;
-
-    /*err = pthread_create(&queue->qmonitor_tid, NULL, qmonitor, queue);*/
-    /*if (err) {*/
-    /*    panic("queue_init: pthread_create: %s\n", strerror(err));*/
-    /*}*/
 
     return queue;
 }
