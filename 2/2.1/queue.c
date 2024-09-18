@@ -52,6 +52,24 @@ void queue_destroy(queue_t *q) {
         curr = next;
     }
 
+    int err;
+
+    err = pthread_cancel(q->qmonitor_tid);
+    if (err) {
+        printf("queue_destroy: pthread_cancel: %s\n", strerror(err));
+        abort();
+    }
+
+    void *ret;
+
+    err = pthread_join(q->qmonitor_tid, &ret);
+    if (err) {
+        printf("queue_destroy: pthread_join: %s\n", strerror(err));
+        abort();
+    }
+
+    assert(ret == PTHREAD_CANCELED);
+
     free(q);
 }
 
