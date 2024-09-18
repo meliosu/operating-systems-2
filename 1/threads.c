@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <sched.h>
+#include <setjmp.h>
 #include <sys/mman.h>
 #include <threads.h>
 #include <unistd.h>
@@ -20,14 +21,19 @@ void *stack_from_ctx(struct thread_ctx *ctx) {
 int thread_entry(void *arg) {
     self = arg;
 
-    void *retval = self->start(self->arg);
+    int jumped = setjmp(self->jmp);
+
+    if (!jumped) {
+        self->retval = self->start(self->arg);
+    }
+
+    if (self->canceled) {
+        self->retval = THREAD_CANCELED;
+    }
 
     if (self->detached) {
         void *stack = stack_from_ctx(self);
-
         munmap(stack, STACK_SIZE);
-    } else {
-        self->retval = retval;
     }
 
     return 0;
@@ -46,7 +52,7 @@ int thread_create(thread_t *thread_id, void *(*start)(void *), void *arg) {
     );
 
     if (stack == MAP_FAILED) {
-        return errno;
+        return -errno;
     }
 
     err = mprotect(
@@ -54,18 +60,21 @@ int thread_create(thread_t *thread_id, void *(*start)(void *), void *arg) {
     );
 
     if (err) {
-        return -1;
+        munmap(stack, STACK_SIZE);
+        return -errno;
     }
 
     struct thread_ctx *ctx = stack + STACK_SIZE - sizeof(struct thread_ctx);
 
     ctx->start = start;
     ctx->arg = arg;
+
     ctx->detached = 0;
+    ctx->canceled = 0;
 
     int tid = clone(
         thread_entry,
-        stack + STACK_SIZE,
+        stack + STACK_SIZE - sizeof(struct thread_ctx),
         CLONE_VM | CLONE_FILES | CLONE_FS | CLONE_SIGHAND | CLONE_THREAD |
             CLONE_SYSVSEM | CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID,
         ctx,
@@ -76,8 +85,10 @@ int thread_create(thread_t *thread_id, void *(*start)(void *), void *arg) {
 
     if (tid < 0) {
         munmap(stack, STACK_SIZE);
-        return -1;
+        return -errno;
     }
+
+    *thread_id = ctx;
 
     return 0;
 }
@@ -111,7 +122,17 @@ void thread_detach() {
     self->detached = 1;
 }
 
+void thread_cancel(thread_t tid) {
+    tid->canceled = 1;
+}
+
+void thread_testcancel() {
+    if (self->canceled) {
+        longjmp(self->jmp, 1);
+    }
+}
+
 [[noreturn]] void thread_exit(void *retval) {
     self->retval = retval;
-    _exit(0);
+    longjmp(self->jmp, 1);
 }
