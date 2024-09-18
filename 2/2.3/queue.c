@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "queue.h"
 
@@ -17,6 +18,13 @@ node_t *node_random() {
 
     node->value[rand() % 100] = 0;
     node->next = NULL;
+
+    int err;
+
+    err = pthread_mutex_init(&node->mutex, NULL);
+    if (err) {
+        panic("pthread_mutex_init: %s\n", strerror(err));
+    }
 
     return node;
 }
@@ -36,9 +44,18 @@ void queue_init(queue_t *queue, int size) {
 void queue_destroy(queue_t *queue) {
     node_t *curr = queue->head;
 
+    int err;
+
     while (curr) {
         node_t *next = curr->next;
+
+        err = pthread_mutex_destroy(&curr->mutex);
+        if (err) {
+            printf("pthread_mutex_destroy: %s\n", strerror(err));
+        }
+
         free(curr);
+
         curr = next;
     }
 }

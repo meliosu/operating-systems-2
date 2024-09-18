@@ -10,6 +10,8 @@
 typedef struct node_t {
     char value[100];
     struct node_t *next;
+
+    pthread_mutex_t mutex;
 } node_t;
 
 typedef struct queue_t {
