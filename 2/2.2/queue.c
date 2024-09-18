@@ -357,7 +357,7 @@ void queue_destroy(queue_t *q) {
 
 void queue_print_stats(queue_t *queue) {
     printf(
-        "%8s %8s %8s %8s %8s %8s %8s\n",
+        "%9s %9s %9s %9s %9s %9s %9s\n",
         "count",
         "add att.",
         "get att.",
@@ -368,7 +368,7 @@ void queue_print_stats(queue_t *queue) {
     );
 
     printf(
-        "%8d %8ld %8ld %8ld %8ld %8ld %8ld\n",
+        "%9d %9ld %9ld %9ld %9ld %9ld %9ld\n",
         queue->count,
         queue->add_attempts,
         queue->get_attempts,
