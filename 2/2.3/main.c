@@ -79,10 +79,14 @@ void *thread_equal(void *arg) {
     return NULL;
 }
 
-void swap_nodes(node_t *prev, node_t *a, node_t *b) {
-    prev->next = b;
-    a->next = b->next;
-    b->next = a;
+void swap_nodes(node_t *prev, node_t **a, node_t **b) {
+    prev->next = *b;
+    (*a)->next = (*b)->next;
+    (*b)->next = *a;
+
+    node_t *tmp = *a;
+    *a = *b;
+    *b = tmp;
 }
 
 void traverse_permute(queue_t *queue, int *counter) {
@@ -98,7 +102,7 @@ void traverse_permute(queue_t *queue, int *counter) {
         pthread_mutex_lock(&third->mutex);
 
         if (rand() < RAND_MAX / SWAP_PROBABILITY) {
-            swap_nodes(first, second, third);
+            swap_nodes(first, &second, &third);
         }
 
         node_t *fourth = third->next;
@@ -132,7 +136,7 @@ void print_counters() {
     );
 
     printf(
-        "%10d %10d %10d %10d %10d\n",
+        "%10d %10d %10d %10d %10d\n\n",
         counter_increasing,
         counter_decreasing,
         counter_equal,
