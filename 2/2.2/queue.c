@@ -45,22 +45,7 @@ int queue_add(queue_t *queue, int val) {
         }
     }
 
-#else
-    if (queue->count == queue->max_count) {
-        return 0;
-    }
-
-#endif
-
-    qnode_t *new = malloc(sizeof(qnode_t));
-    if (!new) {
-        panic("cannot allocate memory for new node\n");
-    }
-
-    new->val = val;
-    new->next = NULL;
-
-#if defined SYNC_SPINLOCK
+#elif defined SYNC_SPINLOCK
     err = pthread_spin_lock(&queue->spinlock);
     if (err) {
         panic("queue_add: spin_lock: %s\n", strerror(err));
@@ -84,15 +69,29 @@ int queue_add(queue_t *queue, int val) {
 
 #endif
 
-    if (!queue->first)
-        queue->first = queue->last = new;
-    else {
-        queue->last->next = new;
-        queue->last = queue->last->next;
-    }
+    int ret = 0;
 
-    queue->count++;
-    queue->add_count++;
+    if (queue->count < queue->max_count) {
+        qnode_t *new = malloc(sizeof(qnode_t));
+        if (!new) {
+            panic("cannot allocate memory for new node\n");
+        }
+
+        new->val = val;
+        new->next = NULL;
+
+        if (!queue->first)
+            queue->first = queue->last = new;
+        else {
+            queue->last->next = new;
+            queue->last = queue->last->next;
+        }
+
+        queue->count++;
+        queue->add_count++;
+
+        ret = 1;
+    }
 
 #if defined SYNC_SPINLOCK
     err = pthread_spin_unlock(&queue->spinlock);
@@ -134,7 +133,7 @@ int queue_add(queue_t *queue, int val) {
 
 #endif
 
-    return 1;
+    return ret;
 }
 
 int queue_get(queue_t *queue, int *val) {
@@ -178,20 +177,23 @@ int queue_get(queue_t *queue, int *val) {
         }
     }
 
-#else
-    if (queue->count == 0) {
-        return 0;
-    }
-
 #endif
 
-    qnode_t *tmp = queue->first;
+    int ret = 0;
 
-    *val = tmp->val;
-    queue->first = queue->first->next;
+    if (queue->count > 0) {
+        qnode_t *tmp = queue->first;
 
-    queue->count--;
-    queue->get_count++;
+        *val = tmp->val;
+        queue->first = queue->first->next;
+
+        queue->count--;
+        queue->get_count++;
+
+        free(tmp);
+
+        ret = 1;
+    }
 
 #if defined SYNC_SPINLOCK
     err = pthread_spin_unlock(&queue->spinlock);
@@ -233,8 +235,7 @@ int queue_get(queue_t *queue, int *val) {
 
 #endif
 
-    free(tmp);
-    return 1;
+    return ret;
 }
 
 queue_t *queue_init(int max_count) {
