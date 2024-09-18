@@ -31,21 +31,21 @@ void traverse_compare(
 ) {
     node_t *current = queue->head;
 
-    pthread_mutex_lock(&current->mutex);
+    node_lock_read(current);
     node_t *next = current->next;
 
     while (next) {
-        pthread_mutex_lock(&next->mutex);
+        node_lock_read(next);
         ordered(current->value, next->value);
 
         node_t *actually_next = next->next;
 
-        pthread_mutex_unlock(&current->mutex);
+        node_unlock(current);
         current = next;
         next = actually_next;
     }
 
-    pthread_mutex_unlock(&current->mutex);
+    node_unlock(current);
     *counter += 1;
 }
 
@@ -92,14 +92,14 @@ void swap_nodes(node_t *prev, node_t **a, node_t **b) {
 void traverse_permute(queue_t *queue, int *counter) {
     node_t *first = queue->head;
 
-    pthread_mutex_lock(&first->mutex);
+    node_lock_write(first);
     node_t *second = first->next;
 
-    pthread_mutex_lock(&second->mutex);
+    node_lock_write(second);
     node_t *third = second->next;
 
     while (third) {
-        pthread_mutex_lock(&third->mutex);
+        node_lock_write(third);
 
         if (rand() < RAND_MAX / SWAP_PROBABILITY) {
             swap_nodes(first, &second, &third);
@@ -107,15 +107,15 @@ void traverse_permute(queue_t *queue, int *counter) {
 
         node_t *fourth = third->next;
 
-        pthread_mutex_unlock(&first->mutex);
+        node_unlock(first);
 
         first = second;
         second = third;
         third = fourth;
     }
 
-    pthread_mutex_unlock(&first->mutex);
-    pthread_mutex_unlock(&second->mutex);
+    node_unlock(first);
+    node_unlock(second);
 
     __sync_fetch_and_add(counter, 1);
 }
