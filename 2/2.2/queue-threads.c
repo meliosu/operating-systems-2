@@ -45,8 +45,6 @@ void report_inconsistency(int expected, int actual) {
 void *reader(void *arg) {
     queue_t *queue = (queue_t *)arg;
 
-    set_cpu(1);
-
     int expected = 0;
 
     while (1) {
@@ -69,8 +67,6 @@ void *reader(void *arg) {
 
 void *writer(void *arg) {
     queue_t *queue = (queue_t *)arg;
-
-    set_cpu(1);
 
     int i = 0;
 

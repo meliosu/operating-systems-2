@@ -47,7 +47,9 @@ typedef struct _Queue {
     pthread_mutex_it mutex;
 
 #elif defined SYNC_SEM
-    sem_t sem;
+    sem_t sem_empty;
+    sem_t sem_full;
+    sem_t sem_lock;
 
 #endif
 

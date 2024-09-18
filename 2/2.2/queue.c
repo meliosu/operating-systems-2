@@ -71,6 +71,16 @@ int queue_add(queue_t *queue, int val) {
     if (err) {
         panic("queue_add: mutex_lock: %s\n", strerror(err));
     }
+#elif defined SYNC_SEM
+    err = sem_wait(&queue->sem_empty);
+    if (err) {
+        panic("queue_add: sem_wait on sem_empty: %s\n", strerror(err));
+    }
+
+    err = sem_wait(&queue->sem_lock);
+    if (err) {
+        panic("queue_add: sem_wai on sem_lock")
+    }
 
 #endif
 
@@ -111,6 +121,17 @@ int queue_add(queue_t *queue, int val) {
         panic("queue_add: mutex_unlock: %s\n", strerror(err));
     }
 
+#elif defined SYNC_SEM
+    err = sem_post(&queue->sem_lock);
+    if (err) {
+        panic("queue_add: sem_post on sem_lock: %s\n", strerror(err));
+    }
+
+    err = sem_post(&queue->sem_full);
+    if (err) {
+        panic("queue_add: sem_post on sem_full: %s\n", strerror(err));
+    }
+
 #endif
 
     return 1;
@@ -129,6 +150,17 @@ int queue_get(queue_t *queue, int *val) {
     int err = pthread_mutex_lock(&queue->mutex);
     if (err) {
         panic("queue_get: mutex_lock: %s\n", strerror(err));
+    }
+
+#elif defined SYNC_SEM
+    err = sem_wait(&queue->sem_full);
+    if (err) {
+        panic("queue_get: sem_wait on sem_full: %s\n", strerror(err));
+    }
+
+    err = sem_wait(&queue->sem_lock);
+    if (err) {
+        panic("queue_get: sem_wait on sem_lock")
     }
 
 #endif
@@ -188,6 +220,17 @@ int queue_get(queue_t *queue, int *val) {
         panic("queue_get: mutex_unlock: %s\n", strerror(err));
     }
 
+#elif defined SYNC_SEM
+    err = sem_post(&queue->sem_lock);
+    if (err) {
+        panic("queue_get: sem_post on sem_lock: %s\n", strerror(err));
+    }
+
+    err = sem_post(&queue->sem_empty);
+    if (err) {
+        panic("queue_get: sem_post on sem_empty: %s\n", strerror(err));
+    }
+
 #endif
 
     free(tmp);
@@ -224,7 +267,17 @@ queue_t *queue_init(int max_count) {
     }
 
 #elif defined SYNC_SEM
-    err = sem_init(&queue->semaphore, 0, 0);
+    err = sem_init(&queue->sem_lock, 0, 1);
+    if (err) {
+        panic("sem_init: %s\n", strerror(errno));
+    }
+
+    err = sem_init(&queue->sem_empty, 0, max_count);
+    if (err) {
+        panic("sem_init: %s\n", strerror(errno));
+    }
+
+    err = sem_init(&queue->sem_full, 0, 0);
     if (err) {
         panic("sem_init: %s\n", strerror(errno));
     }
@@ -281,7 +334,17 @@ void queue_destroy(queue_t *q) {
     }
 
 #elif defined SYNC_SEM
-    err = sem_destroy(&q->semaphore);
+    err = sem_destroy(&q->sem_empty);
+    if (err) {
+        printf("sem_destroy: %s\n", strerror(errno));
+    }
+
+    err = sem_destroy(&q->sem_full);
+    if (err) {
+        printf("sem_destroy: %s\n", strerror(errno));
+    }
+
+    err = sem_destroy(&q->sem_lock);
     if (err) {
         printf("sem_destroy: %s\n", strerror(errno));
     }
