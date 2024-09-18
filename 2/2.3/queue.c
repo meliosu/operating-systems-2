@@ -29,6 +29,30 @@
 SYNC_MUTEX, SYNC_SPINLOCK, SYNC_RWLOCK"
 #endif
 
+void node_unlock(node_t *node) {
+    int err;
+
+#if defined SYNC_MUTEX
+    err = pthread_mutex_unlock(&node->mutex);
+    if (err) {
+        panic("mutex_unlock: %s\n", strerror(err));
+    }
+
+#elif defined SYNC_SPINLOCK
+    err = pthread_spin_unlock(&node->spinlock);
+    if (err) {
+        panic("spin_unlock: %s\n", strerror(err));
+    }
+
+#elif defined SYNC_RWLOCK
+    err = pthread_rwlock_unlock(&node->rwlock);
+    if (err) {
+        panic("rwlock_unlock: %s\n", strerror(err));
+    }
+
+#endif
+}
+
 static void node_lock(node_t *node) {
     int err;
 

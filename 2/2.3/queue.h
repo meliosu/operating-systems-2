@@ -32,6 +32,7 @@ node_t *node_random();
 
 void node_lock_read(node_t *node);
 void node_lock_write(node_t *node);
+void node_unlock(node_t *node);
 
 void queue_init(queue_t *queue, int size);
 void queue_destroy(queue_t *queue);
