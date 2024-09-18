@@ -1,8 +1,19 @@
 #define _GNU_SOURCE
+
 #include <assert.h>
 #include <pthread.h>
 
+#ifdef SYNC_SEM
+    #include <semaphore.h>
+#endif
+
 #include "queue.h"
+
+#define panic(fmt, args...)                                                    \
+    do {                                                                       \
+        printf(fmt, ##args);                                                   \
+        abort();                                                               \
+    } while (0);
 
 void *qmonitor(void *arg) {
     queue_t *queue = (queue_t *)arg;
@@ -20,9 +31,34 @@ queue_t *queue_init(int max_count) {
 
     queue_t *queue = malloc(sizeof(queue_t));
     if (!queue) {
-        printf("Cannot allocate memory for a queue\n");
-        abort();
+        panic("cannot allocate memory for a queue\n");
     }
+
+#if defined SYNC_SPINLOCK
+    err = pthread_spin_init(&queue->spinlock, 0);
+    if (err) {
+        panic("spin_init: %s\n", strerror(err));
+    }
+
+#elif defined SYNC_MUTEX
+    err = pthread_mutex_init(&queue->mutex, NULL);
+    if (err) {
+        panic("mutex_init: %s\n", strerror(err));
+    }
+
+#elif defined SYNC_COND
+    err = pthread_cond_init(&queue->cond, NULL);
+    if (err) {
+        panic("cond_init: %s\n", strerror(err));
+    }
+
+#elif defined SYNC_SEM
+    err = sem_init(&queue->semaphore, 0, 0);
+    if (err) {
+        panic("sem_init: %s\n", strerror(errno));
+    }
+
+#endif
 
     queue->first = NULL;
     queue->last = NULL;
@@ -35,8 +71,7 @@ queue_t *queue_init(int max_count) {
 
     err = pthread_create(&queue->qmonitor_tid, NULL, qmonitor, queue);
     if (err) {
-        printf("queue_init: pthread_create: %s\n", strerror(err));
-        abort();
+        panic("queue_init: pthread_create: %s\n", strerror(err));
     }
 
     return queue;
@@ -51,6 +86,34 @@ void queue_destroy(queue_t *q) {
         curr = next;
     }
 
+    int err;
+
+#if defined SYNC_SPINLOCK
+    err = pthread_spin_destroy(&q->spinlock);
+    if (err) {
+        printf("spin_destroy: %s\n", strerror(err));
+    }
+
+#elif defined SYNC_MUTEX
+    err = pthread_mutex_destroy(&q->mutex);
+    if (err) {
+        printf("mutex_destroy: %s\n", strerror(err));
+    }
+
+#elif defined SYNC_COND
+    err = pthread_cond_destroy(&q->cond);
+    if (err) {
+        printf("cond_destroy: %s\n", strerror(err));
+    }
+
+#elif defined SYNC_SEM
+    err = sem_destroy(&q->semaphore);
+    if (err) {
+        printf("sem_destroy: %s\n", strerror(errno));
+    }
+
+#endif
+
     free(q);
 }
 
@@ -64,8 +127,7 @@ int queue_add(queue_t *queue, int val) {
 
     qnode_t *new = malloc(sizeof(qnode_t));
     if (!new) {
-        printf("Cannot allocate memory for new node\n");
-        abort();
+        panic("cannot allocate memory for new node\n");
     }
 
     new->val = val;

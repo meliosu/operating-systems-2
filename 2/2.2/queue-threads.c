@@ -14,6 +14,7 @@
 
 #define RED "\033[41m"
 #define NOCOLOR "\033[0m"
+
 #define QUEUE_SIZE 10000
 
 void set_cpu(int n) {
@@ -35,7 +36,7 @@ void set_cpu(int n) {
 
 void report_inconsistency(int expected, int actual) {
     printf(
-        RED "ERROR: get value is %d but expected - %d" NOCOLOR "\n",
+        RED "ERROR: get value is %d but expected %d" NOCOLOR "\n",
         actual,
         expected
     );
