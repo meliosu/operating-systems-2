@@ -2,8 +2,9 @@
 
 #include <assert.h>
 #include <pthread.h>
+#include <threads.h>
 
-#ifdef SYNC_SEM
+#if defined SYNC_SEM
     #include <semaphore.h>
 #endif
 
@@ -14,6 +15,8 @@
         printf(fmt, ##args);                                                   \
         abort();                                                               \
     } while (0);
+
+thread_local int err;
 
 void *qmonitor(void *arg) {
     queue_t *queue = (queue_t *)arg;
@@ -26,9 +29,172 @@ void *qmonitor(void *arg) {
     return NULL;
 }
 
-queue_t *queue_init(int max_count) {
-    int err;
+int queue_add(queue_t *queue, int val) {
+    queue->add_attempts++;
 
+#if defined SYNC_COND
+    err = pthread_mutex_lock(&queue->mutex);
+    if (err) {
+        panic("queue_add: mutex_lock: %s\n", strerror(err));
+    }
+
+    while (queue->count == queue->max_count) {
+        err = pthread_cond_wait(&queue->cond, &queue->mutex);
+        if (err) {
+            panic("queue_add: cond_wait: %s\n", strerror(err));
+        }
+    }
+
+#else
+    if (queue->count == queue->max_count) {
+        return 0;
+    }
+
+#endif
+
+    qnode_t *new = malloc(sizeof(qnode_t));
+    if (!new) {
+        panic("cannot allocate memory for new node\n");
+    }
+
+    new->val = val;
+    new->next = NULL;
+
+#if defined SYNC_SPINLOCK
+    err = pthread_spin_lock(&queue->spinlock);
+    if (err) {
+        panic("queue_add: spin_lock: %s\n", strerror(err));
+    }
+
+#elif defined SYNC_MUTEX
+    err = pthread_mutex_lock(&queue->mutex);
+    if (err) {
+        panic("queue_add: mutex_lock: %s\n", strerror(err));
+    }
+
+#endif
+
+    if (!queue->first)
+        queue->first = queue->last = new;
+    else {
+        queue->last->next = new;
+        queue->last = queue->last->next;
+    }
+
+    queue->count++;
+    queue->add_count++;
+
+#if defined SYNC_SPINLOCK
+    err = pthread_spin_unlock(&queue->spinlock);
+    if (err) {
+        panic("queue_add: spin_unlock: %s\n", strerror(err));
+    }
+
+#elif defined SYNC_MUTEX
+    err = pthread_mutex_unlock(&queue->mutex);
+    if (err) {
+        panic("queue_add: mutex_unlock: %s\n", strerror(err));
+    }
+
+#elif defined SYNC_COND
+    int signal = queue->count == 1;
+
+    if (signal) {
+        err = pthread_cond_signal(&queue->cond);
+        if (err) {
+            panic("queue_add: cond_signal: %s\n", strerror(err));
+        }
+    }
+
+    err = pthread_mutex_unlock(&queue->mutex);
+    if (err) {
+        panic("queue_add: mutex_unlock: %s\n", strerror(err));
+    }
+
+#endif
+
+    return 1;
+}
+
+int queue_get(queue_t *queue, int *val) {
+    queue->get_attempts++;
+
+#if defined SYNC_SPINLOCK
+    int err = pthread_spin_lock(&queue->spinlock);
+    if (err) {
+        panic("queue_get: spin_lock: %s\n", strerror(err));
+    }
+
+#elif defined SYNC_MUTEX
+    int err = pthread_mutex_lock(&queue->mutex);
+    if (err) {
+        panic("queue_get: mutex_lock: %s\n", strerror(err));
+    }
+
+#endif
+
+#if defined SYNC_COND
+    err = pthread_mutex_lock(&queue->mutex);
+    if (err) {
+        panic("queue_get: mutex_lock: %s\n", strerror(err));
+    }
+
+    while (queue->count == 0) {
+        err = pthread_cond_wait(&queue->cond, &queue->mutex);
+        if (err) {
+            panic("queue_get: cond_wait: %s\n", strerror(err));
+        }
+    }
+
+#else
+    if (queue->count == 0) {
+        return 0;
+    }
+
+#endif
+
+    qnode_t *tmp = queue->first;
+
+    *val = tmp->val;
+    queue->first = queue->first->next;
+
+    queue->count--;
+    queue->get_count++;
+
+#if defined SYNC_SPINLOCK
+    err = pthread_spin_unlock(&queue->spinlock);
+    if (err) {
+        panic("queue_get: spin_unlock: %s\n", strerror(err));
+    }
+
+#elif defined SYNC_MUTEX
+    err = pthread_mutex_unlock(&queue->mutex);
+    if (err) {
+        panic("queue_get: mutex_unlock: %s\n", strerror(err));
+    }
+
+#elif defined SYNC_COND
+    int signal = queue->count == queue->max_count - 1;
+
+    if (signal) {
+        err = pthread_cond_signal(&queue->cond);
+        if (err) {
+            panic("queue_get: cond_signal: %s\n", strerror(err));
+        }
+    }
+
+    err = pthread_mutex_unlock(&queue->mutex);
+    if (err) {
+        panic("queue_get: mutex_unlock: %s\n", strerror(err));
+    }
+
+#endif
+
+    free(tmp);
+    return 1;
+}
+
+queue_t *queue_init(int max_count) {
     queue_t *queue = malloc(sizeof(queue_t));
     if (!queue) {
         panic("cannot allocate memory for a queue\n");
@@ -47,6 +213,11 @@ queue_t *queue_init(int max_count) {
     }
 
 #elif defined SYNC_COND
+    err = pthread_mutex_init(&queue->mutex, NULL);
+    if (err) {
+        panic("mutex_init: %s\n", strerror(err));
+    }
+
     err = pthread_cond_init(&queue->cond, NULL);
     if (err) {
         panic("cond_init: %s\n", strerror(err));
@@ -86,8 +257,6 @@ void queue_destroy(queue_t *q) {
         curr = next;
     }
 
-    int err;
-
 #if defined SYNC_SPINLOCK
     err = pthread_spin_destroy(&q->spinlock);
     if (err) {
@@ -106,6 +275,11 @@ void queue_destroy(queue_t *q) {
         printf("cond_destroy: %s\n", strerror(err));
     }
 
+    err = pthread_mutex_destroy(&q->mutex);
+    if (err) {
+        printf("mutex_destroy: %s\n", strerror(err));
+    }
+
 #elif defined SYNC_SEM
     err = sem_destroy(&q->semaphore);
     if (err) {
@@ -117,59 +291,20 @@ void queue_destroy(queue_t *q) {
     free(q);
 }
 
-int queue_add(queue_t *queue, int val) {
-    queue->add_attempts++;
-
-    assert(queue->count <= queue->max_count);
-
-    if (queue->count == queue->max_count)
-        return 0;
-
-    qnode_t *new = malloc(sizeof(qnode_t));
-    if (!new) {
-        panic("cannot allocate memory for new node\n");
-    }
-
-    new->val = val;
-    new->next = NULL;
-
-    if (!queue->first)
-        queue->first = queue->last = new;
-    else {
-        queue->last->next = new;
-        queue->last = queue->last->next;
-    }
-
-    queue->count++;
-    queue->add_count++;
-
-    return 1;
-}
-
-int queue_get(queue_t *queue, int *val) {
-    queue->get_attempts++;
-
-    assert(queue->count >= 0);
-
-    if (queue->count == 0)
-        return 0;
-
-    qnode_t *tmp = queue->first;
-
-    *val = tmp->val;
-    queue->first = queue->first->next;
-
-    free(tmp);
-    queue->count--;
-    queue->get_count++;
-
-    return 1;
-}
-
 void queue_print_stats(queue_t *queue) {
     printf(
-        "queue stats: current size %d; attempts: (%ld %ld %ld); counts (%ld "
-        "%ld %ld)\n",
+        "%8s %8s %8s %8s %8s %8s %8s\n",
+        "count",
+        "add att.",
+        "get att.",
+        "diff",
+        "add cnt.",
+        "get cnt.",
+        "diff"
+    );
+
+    printf(
+        "%8d %8ld %8ld %8ld %8ld %8ld %8ld\n",
         queue->count,
         queue->add_attempts,
         queue->get_attempts,

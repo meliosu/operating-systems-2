@@ -44,6 +44,7 @@ typedef struct _Queue {
 
 #elif defined SYNC_COND
     pthread_cond_t cond;
+    pthread_mutex_it mutex;
 
 #elif defined SYNC_SEM
     sem_t sem;
