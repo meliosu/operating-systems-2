@@ -7,7 +7,7 @@
 
 #include "queue.h"
 
-#define SWAP_PROBABILITY 10
+#define SWAP_PROBABILITY 2
 
 int counter_increasing;
 int counter_decreasing;
@@ -130,18 +130,34 @@ void *thread_permutating(void *arg) {
     return NULL;
 }
 
-void print_counters() {
-    printf(
-        "%10s %10s %10s %10s %10s\n", "incr.", "decr.", "eq.", "total", "swap"
-    );
+void print_counters(int elapsed) {
+    if (elapsed == 0) {
+        printf(
+            "%2s %9s %9s %9s %9s %9s %9s\n",
+            "",
+            "incr.",
+            "decr.",
+            "eq.",
+            "total",
+            "swap",
+            "cmp./swap"
+        );
+    }
+
+    int compared = counter_increasing + counter_decreasing + counter_equal;
+
+    float compared_to_swapped =
+        (float)(compared + 1) / (float)(counter_swapped + 1);
 
     printf(
-        "%10d %10d %10d %10d %10d\n\n",
+        "%2d %9d %9d %9d %9d %9d %9f\n",
+        elapsed,
         counter_increasing,
         counter_decreasing,
         counter_equal,
-        counter_increasing + counter_decreasing + counter_swapped,
-        counter_swapped
+        compared,
+        counter_swapped,
+        compared_to_swapped
     );
 }
 
@@ -150,7 +166,7 @@ int main() {
     queue_t queue;
     pthread_t tid[6];
 
-    queue_init(&queue, 1000);
+    queue_init(&queue, 100);
 
     void *(*threads[6])(void *) = {
         thread_increasing,
@@ -168,8 +184,8 @@ int main() {
         }
     }
 
-    while (1) {
-        print_counters();
+    for (int elapsed = 0;; elapsed++) {
+        print_counters(elapsed);
         sleep(1);
     }
 
