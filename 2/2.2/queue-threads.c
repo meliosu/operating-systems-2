@@ -2,7 +2,6 @@
 
 #include <pthread.h>
 #include <sched.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,26 +47,30 @@ float timeval_to_ms(struct timeval *time) {
 }
 
 void report_resources(void *thread_name) {
+    char buf[1024];
+
     struct rusage rusage;
     int err;
 
     err = getrusage(RUSAGE_THREAD, &rusage);
     if (err) {
-        printf("error getting resource usage\n");
-        return;
+        sprintf(buf, "error getting resource usage\n");
+    } else {
+        float user_ms = timeval_to_ms(&rusage.ru_utime);
+        float system_ms = timeval_to_ms(&rusage.ru_stime);
+        float ratio = system_ms / (system_ms + user_ms) * 100.0;
+
+        sprintf(
+            buf,
+            "%s: user=%.2fms, system=%.2fms, system/total=%.2f%%\n",
+            (char *)thread_name,
+            user_ms,
+            system_ms,
+            ratio
+        );
     }
 
-    float user_ms = timeval_to_ms(&rusage.ru_utime);
-    float system_ms = timeval_to_ms(&rusage.ru_stime);
-    float ratio = system_ms / (system_ms + user_ms) * 100.0;
-
-    printf(
-        "%s: user=%.2fms, system=%.2fms, system/total=%.2f%%\n",
-        (char *)thread_name,
-        user_ms,
-        system_ms,
-        ratio
-    );
+    write(STDOUT_FILENO, buf, strlen(buf));
 }
 
 void *reader(void *arg) {
@@ -126,13 +129,6 @@ void *writer(void *arg) {
     return NULL;
 }
 
-void handler(int _num) {
-    char buffer[1024];
-    report_resources(buffer);
-    write(STDOUT_FILENO, buffer, strlen(buffer));
-    pthread_exit(NULL);
-}
-
 int main() {
     pthread_t tid[2];
     queue_t *queue;
@@ -140,10 +136,6 @@ int main() {
     pthread_attr_t attr;
 
     queue = queue_init(QUEUE_SIZE);
-
-    struct sigaction act = {
-        .sa_handler = handler,
-    };
 
     err = pthread_create(&tid[0], NULL, reader, queue);
     if (err) {
@@ -181,6 +173,7 @@ int main() {
 
     printf("Queue Stats\n");
     queue_print_stats(queue);
+    queue_destroy(queue);
 
     return 0;
 }
