@@ -1,3 +1,6 @@
+#ifndef __THREADS_H__
+#define __THREADS_H__
+
 #include <setjmp.h>
 
 struct thread_ctx {
@@ -24,3 +27,5 @@ void thread_detach();
 void thread_cancel(thread_t tid);
 void thread_testcancel();
 [[noreturn]] void thread_exit(void *retval);
+
+#endif /* __THREADS_H__ */
