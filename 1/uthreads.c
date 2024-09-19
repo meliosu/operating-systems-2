@@ -43,6 +43,8 @@ long timespec_diff_us(const struct timespec *now, const struct timespec *min) {
 }
 
 void handle_exit(struct uthread_ctx *uthread) {
+    printf("%s\n", __func__);
+
     if (uthread == sched_ctx.queue.first) {
         sched_ctx.queue.first = uthread->next;
     }
@@ -262,10 +264,14 @@ int uthread_join(uthread_t tid, void **retval) {
         return -1;
     }
 
-    sched_ctx.current->waiting_on = tid;
-    uthread_yield();
+    if (!tid->exited) {
+        sched_ctx.current->waiting_on = tid;
+        uthread_yield();
+    }
 
-    *retval = tid->retval;
+    if (retval) {
+        *retval = tid->retval;
+    }
 
     destroy_stack(
         (void *)tid + sizeof(struct uthread_ctx) - STACK_SIZE, STACK_SIZE

@@ -3,67 +3,85 @@
 
 #include "uthreads.h"
 
-void *thread(void *arg) {
-    int num = (int)(long)arg;
+#define TEST(name, test_fn)                                                    \
+    do {                                                                       \
+        printf("%-30s", "Testing " name "...\n");                              \
+        if (test_fn()) {                                                       \
+            printf("Failed\n\n");                                              \
+        } else {                                                               \
+            printf("Success\n\n");                                             \
+        }                                                                      \
+    } while (0);
 
-    while (1) {
-        printf("%s %d\n", __func__, num);
+void *thread_joined(void *arg) {
+    *(int *)arg += 1;
+    printf("thread\n");
+    return NULL;
+}
 
-        if (num == 0) {
-            uthread_sleep(5);
-        } else {
-            uthread_sleep(1);
+void *thread_sleeps(void *_) {
+    for (int i = 0; i < 10; i++) {
+        printf("thread\n");
+        uthread_usleep(100 * 1000);
+    }
+
+    return NULL;
+}
+
+int test_join() {
+    const int num_threads = 5;
+
+    int err;
+    uthread_t tid[num_threads];
+
+    int counter = 0;
+
+    for (int i = 0; i < num_threads; i++) {
+        err = uthread_create(&tid[i], thread_joined, &counter);
+        if (err) {
+            return -1;
         }
-    }
-}
 
-void *thread2(void *_) {
-    for (int i = 0; i < 3; i++) {
-        uthread_sleep(1);
-        printf("thread 2\n");
+        printf("created\n");
     }
 
-    return (void *)0xdeadbeef;
+    for (int i = 0; i < num_threads; i++) {
+        err = uthread_join(tid[i], NULL);
+        if (err) {
+            return -1;
+        }
+
+        printf("joined\n");
+    }
+
+    if (counter != 5) {
+        return -1;
+    }
+
+    return 0;
 }
 
-int main() {
-    /*int nthreads = 2;*/
-    /**/
-    /*int err;*/
-    /*uthread_t tid[nthreads];*/
-    /**/
-    /*for (int i = 0; i < nthreads; i++) {*/
-    /*    err = uthread_create(&tid[i], thread, (void *)(long)i);*/
-    /*    if (err) {*/
-    /*        perror("uthread_create\n");*/
-    /*        return -1;*/
-    /*    }*/
-    /*}*/
-    /**/
-    /*while (1) {*/
-    /*    uthread_sleep(30);*/
-    /*}*/
-
+int test_sleep() {
     int err;
     uthread_t tid;
 
-    err = uthread_create(&tid, thread2, NULL);
+    err = uthread_create(&tid, thread_sleeps, NULL);
     if (err) {
-        printf("uthread_create\n");
         return -1;
     }
 
-    void *ret;
-
-    /*uthread_sleep(5);*/
-
-    err = uthread_join(tid, &ret);
-    if (err) {
-        printf("uthread_join\n");
-        return -1;
+    for (int i = 0; i < 4; i++) {
+        printf("main\n");
+        uthread_usleep(500 * 1000);
     }
 
-    printf("returned: %p\n", ret);
+    return 0;
+}
+
+int main() {
+
+    TEST("Join", test_join);
+    TEST("Sleep", test_sleep);
 
     return 0;
 }
