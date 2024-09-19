@@ -7,17 +7,23 @@ void *thread(void *arg) {
     int num = (int)(long)arg;
 
     while (1) {
-        printf("%s%d\n", __func__, num);
-        uthread_sleep(1);
-        /*uthread_yield();*/
+        printf("%s %d\n", __func__, num);
+
+        if (num == 0) {
+            uthread_sleep(5);
+        } else {
+            uthread_sleep(1);
+        }
     }
 }
 
 int main() {
-    int err;
-    uthread_t tid[5];
+    int nthreads = 2;
 
-    for (int i = 0; i < 5; i++) {
+    int err;
+    uthread_t tid[nthreads];
+
+    for (int i = 0; i < nthreads; i++) {
         err = uthread_create(&tid[i], thread, (void *)(long)i);
         if (err) {
             perror("uthread_create\n");
@@ -26,9 +32,7 @@ int main() {
     }
 
     while (1) {
-        printf("%s\n", __func__);
-        uthread_sleep(1);
-        /*uthread_yield();*/
+        uthread_sleep(30);
     }
 
     return 0;

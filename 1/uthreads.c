@@ -36,7 +36,7 @@ void timespec_min(struct timespec *min, const struct timespec *curr) {
 }
 
 void usleep_from_timespecs(
-    const struct timespec *min, const struct timespec *now
+    const struct timespec *now, const struct timespec *min
 ) {
     long duration = (min->tv_sec - now->tv_sec) * 1000000 +
                     (min->tv_nsec - now->tv_nsec) / 1000;
@@ -57,22 +57,25 @@ void schedule() {
         struct uthread_ctx *initial = sched_ctx.current;
         struct uthread_ctx *next = initial->next;
 
+        timespec_min(&min, &initial->wait_until);
+
         while (next != initial) {
             if (next == NULL) {
                 next = sched_ctx.queue.first;
                 continue;
             }
 
+            timespec_min(&min, &next->wait_until);
+
             if (timespec_less(&next->wait_until, &now)) {
                 break;
             }
 
-            timespec_min(&min, &next->wait_until);
             next = next->next;
         }
 
-        if (next == initial && timespec_less(&now, &initial->wait_until)) {
-            usleep_from_timespecs(&min, &now);
+        if (timespec_less(&now, &min)) {
+            usleep_from_timespecs(&now, &min);
             continue;
         }
 
