@@ -2,47 +2,44 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 
+#include "stack.h"
 #include "uthreads.h"
 
 #define STACK_SIZE (512 * 1024)
-#define PAGE_SIZE 4096
 
-static struct sched_ctx sched_ctx;
+static struct sched_ctx sched_ctx = {
+    .init = 0,
+};
 
-void *create_stack(int size) {
-    int err;
+static struct uthread_ctx main_ctx;
 
-    void *stack = mmap(
-        NULL, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0
-    );
+void schedule() {
+    while (1) {
+        struct uthread_ctx *current = sched_ctx.current;
+        struct uthread_ctx *next;
 
-    if (stack == MAP_FAILED) {
-        return NULL;
+        if (current->next == NULL) {
+            next = sched_ctx.queue.first;
+        } else {
+            next = current->next;
+        }
+
+        if (current == next) {
+            printf("current == next\n");
+            setcontext(&current->uctx);
+            continue;
+        }
+
+        sched_ctx.current = next;
+
+        if (swapcontext(&sched_ctx.uctx, &next->uctx) < 0) {
+            panic("swapcontext");
+        }
     }
-
-    err = mprotect(stack + PAGE_SIZE, size - PAGE_SIZE, PROT_READ | PROT_WRITE);
-
-    if (err) {
-        munmap(stack, size);
-        return NULL;
-    }
-
-    return stack;
-}
-
-void destroy_stack(void *stack, int size) {
-    munmap(stack, size);
 }
 
 void uthread_entry(struct uthread_ctx *ctx) {
-    // Add current user thread to queue
-    if (!sched_ctx.queue.first) {
-        sched_ctx.queue.first = ctx;
-        sched_ctx.queue.last = ctx;
-    } else {
-        sched_ctx.queue.last->next = ctx;
-        sched_ctx.queue.last = ctx;
-    }
+    ctx->retval = ctx->start(ctx->arg);
 }
 
 int uthread_create(uthread_t *tid, void *(*start)(void *), void *arg) {
@@ -54,49 +51,75 @@ int uthread_create(uthread_t *tid, void *(*start)(void *), void *arg) {
 
     struct uthread_ctx *ctx = stack + STACK_SIZE - sizeof(struct uthread_ctx);
 
-    ctx->start = start;
-    ctx->arg = arg;
-
     if (getcontext(&ctx->uctx) < 0) {
         destroy_stack(stack, STACK_SIZE);
         return -1;
     }
 
     ctx->uctx.uc_stack.ss_sp = stack;
-    ctx->uctx.uc_stack.ss_size = STACK_SIZE;
+    ctx->uctx.uc_stack.ss_size = STACK_SIZE - sizeof(struct uthread_ctx);
+    ctx->uctx.uc_link = &sched_ctx.uctx;
 
-    // Maybe need to pass pointer as 2 args instead
     makecontext(&ctx->uctx, (void(*))uthread_entry, 1, ctx);
+
+    ctx->start = start;
+    ctx->arg = arg;
+
+    if (!sched_ctx.queue.first) {
+        sched_ctx.queue.first = ctx;
+        sched_ctx.queue.last = ctx;
+    } else {
+        sched_ctx.queue.last->next = ctx;
+        sched_ctx.queue.last = ctx;
+    }
+
+    uthread_yield();
 
     return 0;
 }
 
-void uthread_yield() {
-    if (sched_ctx.current == NULL) {
-        panic("current task is NULL");
+void sched_ctx_init() {
+    if (getcontext(&sched_ctx.uctx) < 0) {
+        panic("getcontext");
     }
 
-    /*if (swapcontext(&sched_ctx.current->uctx, &sched_ctx.ctx)) {*/
-    /*    panic("swapcontext");*/
-    /*}*/
+    sched_ctx.uctx.uc_stack.ss_sp = sched_ctx.stack;
+    sched_ctx.uctx.uc_stack.ss_size = sizeof(sched_ctx.stack);
 
-    struct uthread_ctx *next;
+    makecontext(&sched_ctx.uctx, schedule, 0);
 
-    if (sched_ctx.current->next != NULL) {
-        next = sched_ctx.current->next;
+    sched_ctx.init = 1;
+}
+
+void main_ctx_init() {
+    if (getcontext(&main_ctx.uctx) < 0) {
+        panic("getcontext");
+    }
+
+    sched_ctx.current = &main_ctx;
+
+    if (!sched_ctx.queue.first) {
+        sched_ctx.queue.first = &main_ctx;
+        sched_ctx.queue.last = &main_ctx;
     } else {
-        next = sched_ctx.queue.first;
+        sched_ctx.queue.last->next = &main_ctx;
+        sched_ctx.queue.last = &main_ctx;
+    }
+}
+
+int uthread_yield() {
+    if (!sched_ctx.init) {
+        sched_ctx_init();
     }
 
-    if (next == sched_ctx.current) {
-        panic("next == current");
+    // yield was called inside of main ?
+    if (sched_ctx.current == NULL) {
+        main_ctx_init();
     }
 
-    struct uthread_ctx *prev = sched_ctx.current;
-
-    sched_ctx.current = next;
-
-    if (swapcontext(&prev->uctx, &next->uctx) < 0) {
+    if (swapcontext(&sched_ctx.current->uctx, &sched_ctx.uctx) < 0) {
         panic("swapcontext");
     }
+
+    return 0;
 }
