@@ -10,6 +10,9 @@
 #define STACK_SIZE (512 * 1024)
 #define PAGE_SIZE 4096
 
+static struct sched sched;
+static struct uthread_ctx main_ctx;
+
 void *create_stack(int size) {
     int err;
 
@@ -37,12 +40,6 @@ void destroy_stack(void *stack, int size) {
     munmap(stack, size);
 }
 
-static struct sched_ctx sched_ctx = {
-    .init = 0,
-};
-
-static struct uthread_ctx main_ctx;
-
 int timespec_less(const struct timespec *lhs, const struct timespec *rhs) {
     if (lhs->tv_sec < rhs->tv_sec) {
         return 1;
@@ -69,21 +66,35 @@ long timespec_diff_us(const struct timespec *now, const struct timespec *min) {
     return duration;
 }
 
-void handle_exit(struct uthread_ctx *uthread) {
-    printf("%s\n", __func__);
+void timespec_add_us(struct timespec *time, long duration_us) {
+    time->tv_nsec += duration_us * 1000l;
+    time->tv_sec += time->tv_nsec / 1000000000l;
+    time->tv_nsec = time->tv_nsec % 1000000000l;
+}
 
-    if (uthread == sched_ctx.queue.first) {
-        sched_ctx.queue.first = uthread->next;
+void enqueue_uthread(struct uthread_ctx *uthread) {
+    if (!sched.queue.first) {
+        sched.queue.first = uthread;
+        sched.queue.last = uthread;
+    } else {
+        sched.queue.last->next = uthread;
+        sched.queue.last = uthread;
+    }
+}
+
+void handle_exit(struct uthread_ctx *uthread) {
+    if (uthread == sched.queue.first) {
+        sched.queue.first = uthread->next;
     }
 
-    struct uthread_ctx *curr = sched_ctx.queue.first;
+    struct uthread_ctx *curr = sched.queue.first;
 
     while (curr) {
         if (curr->next == uthread) {
             curr->next = uthread->next;
 
-            if (sched_ctx.queue.last == uthread) {
-                sched_ctx.queue.last = curr;
+            if (sched.queue.last == uthread) {
+                sched.queue.last = curr;
             }
         }
 
@@ -103,10 +114,10 @@ void handle_exit(struct uthread_ctx *uthread) {
 }
 
 void do_schedule() {
-    struct uthread_ctx *current = sched_ctx.current;
+    struct uthread_ctx *current = sched.current;
 
     if (current->exited) {
-        struct uthread_ctx *next = current->next ?: sched_ctx.queue.first;
+        struct uthread_ctx *next = current->next ?: sched.queue.first;
         handle_exit(current);
         current = next;
     }
@@ -126,7 +137,7 @@ void do_schedule() {
     while (next != current) {
         // Wrap to the beginning of the queue
         if (next == NULL) {
-            next = sched_ctx.queue.first;
+            next = sched.queue.first;
             continue;
         }
 
@@ -155,9 +166,9 @@ void do_schedule() {
         return;
     }
 
-    sched_ctx.current = next;
+    sched.current = next;
 
-    if (swapcontext(&sched_ctx.uctx, &next->uctx) < 0) {
+    if (swapcontext(&sched.uctx, &next->uctx) < 0) {
         panic("swapcontext");
     }
 }
@@ -189,27 +200,14 @@ int uthread_create(uthread_t *tid, void *(*start)(void *), void *arg) {
 
     ctx->uctx.uc_stack.ss_sp = stack;
     ctx->uctx.uc_stack.ss_size = STACK_SIZE - sizeof(struct uthread_ctx);
-    ctx->uctx.uc_link = &sched_ctx.uctx;
+    ctx->uctx.uc_link = &sched.uctx;
 
     makecontext(&ctx->uctx, (void(*))uthread_entry, 1, ctx);
 
     ctx->start = start;
     ctx->arg = arg;
 
-    ctx->exited = 0;
-    ctx->waiting_on = NULL;
-    ctx->detached = 0;
-
-    ctx->wait_until.tv_sec = 0;
-    ctx->wait_until.tv_nsec = 0;
-
-    if (!sched_ctx.queue.first) {
-        sched_ctx.queue.first = ctx;
-        sched_ctx.queue.last = ctx;
-    } else {
-        sched_ctx.queue.last->next = ctx;
-        sched_ctx.queue.last = ctx;
-    }
+    enqueue_uthread(ctx);
 
     *tid = ctx;
 
@@ -218,46 +216,32 @@ int uthread_create(uthread_t *tid, void *(*start)(void *), void *arg) {
     return 0;
 }
 
-void sched_ctx_init() {
-    if (getcontext(&sched_ctx.uctx) < 0) {
+void sched_init() {
+    if (getcontext(&sched.uctx) < 0) {
         panic("getcontext");
     }
 
-    sched_ctx.uctx.uc_stack.ss_sp = sched_ctx.stack;
-    sched_ctx.uctx.uc_stack.ss_size = sizeof(sched_ctx.stack);
+    sched.uctx.uc_stack.ss_sp = sched.stack;
+    sched.uctx.uc_stack.ss_size = sizeof(sched.stack);
 
-    makecontext(&sched_ctx.uctx, schedule, 0);
+    makecontext(&sched.uctx, schedule, 0);
 
-    sched_ctx.init = 1;
-}
-
-void main_ctx_init() {
     if (getcontext(&main_ctx.uctx) < 0) {
         panic("getcontext");
     }
 
-    sched_ctx.current = &main_ctx;
+    enqueue_uthread(&main_ctx);
 
-    if (!sched_ctx.queue.first) {
-        sched_ctx.queue.first = &main_ctx;
-        sched_ctx.queue.last = &main_ctx;
-    } else {
-        sched_ctx.queue.last->next = &main_ctx;
-        sched_ctx.queue.last = &main_ctx;
-    }
+    sched.current = &main_ctx;
+    sched.init = 1;
 }
 
 void uthread_yield() {
-    if (!sched_ctx.init) {
-        sched_ctx_init();
+    if (!sched.init) {
+        sched_init();
     }
 
-    // yield was called inside of main ?
-    if (sched_ctx.current == NULL) {
-        main_ctx_init();
-    }
-
-    if (swapcontext(&sched_ctx.current->uctx, &sched_ctx.uctx) < 0) {
+    if (swapcontext(&sched.current->uctx, &sched.uctx) < 0) {
         panic("swapcontext");
     }
 }
@@ -267,24 +251,18 @@ void uthread_sleep(long duration_s) {
 }
 
 void uthread_usleep(long duration_us) {
-    if (sched_ctx.current == NULL) {
-        main_ctx_init();
+    if (!sched.init) {
+        sched_init();
     }
 
-    struct timespec *deadline = &sched_ctx.current->wait_until;
-
-    clock_gettime(CLOCK_MONOTONIC, deadline);
-
-    deadline->tv_nsec += duration_us * 1000l;
-    deadline->tv_sec += deadline->tv_nsec / 1000000000l;
-    deadline->tv_nsec = deadline->tv_nsec % 1000000000l;
-
+    clock_gettime(CLOCK_MONOTONIC, &sched.current->wait_until);
+    timespec_add_us(&sched.current->wait_until, duration_us);
     uthread_yield();
 }
 
 int uthread_join(uthread_t tid, void **retval) {
-    if (sched_ctx.current == NULL) {
-        main_ctx_init();
+    if (!sched.init) {
+        sched_init();
     }
 
     if (tid->detached) {
@@ -292,7 +270,7 @@ int uthread_join(uthread_t tid, void **retval) {
     }
 
     if (!tid->exited) {
-        sched_ctx.current->waiting_on = tid;
+        sched.current->waiting_on = tid;
         uthread_yield();
     }
 
@@ -308,9 +286,9 @@ int uthread_join(uthread_t tid, void **retval) {
 }
 
 void uthread_detach() {
-    if (sched_ctx.current == NULL) {
-        main_ctx_init();
+    if (!sched.init) {
+        sched_init();
     }
 
-    sched_ctx.current->detached = 1;
+    sched.current->detached = 1;
 }

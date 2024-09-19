@@ -27,7 +27,7 @@ typedef struct queue_t {
     struct uthread_ctx *last;
 } queue_t;
 
-struct sched_ctx {
+struct sched {
     int init;
     char stack[64 * 1024];
 
