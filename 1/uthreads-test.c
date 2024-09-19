@@ -8,8 +8,8 @@ void *thread(void *arg) {
 
     while (1) {
         printf("%s%d\n", __func__, num);
-        sleep(1);
-        uthread_yield();
+        uthread_sleep(1);
+        /*uthread_yield();*/
     }
 }
 
@@ -27,8 +27,8 @@ int main() {
 
     while (1) {
         printf("%s\n", __func__);
-        sleep(1);
-        uthread_yield();
+        uthread_sleep(1);
+        /*uthread_yield();*/
     }
 
     return 0;

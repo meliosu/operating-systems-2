@@ -1,6 +1,9 @@
+#include <bits/time.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #include "stack.h"
 #include "uthreads.h"
@@ -13,20 +16,63 @@ static struct sched_ctx sched_ctx = {
 
 static struct uthread_ctx main_ctx;
 
+int timespec_less(const struct timespec *lhs, const struct timespec *rhs) {
+    if (lhs->tv_sec < rhs->tv_sec) {
+        return 1;
+    } else if (lhs->tv_sec == rhs->tv_sec && lhs->tv_nsec < rhs->tv_nsec) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+void timespec_min(struct timespec *min, const struct timespec *curr) {
+    if (curr->tv_sec < min->tv_sec) {
+        min->tv_sec = curr->tv_sec;
+        min->tv_nsec = curr->tv_nsec;
+    } else if (curr->tv_sec == min->tv_sec && curr->tv_nsec < min->tv_nsec) {
+        min->tv_nsec = curr->tv_nsec;
+    }
+}
+
+void usleep_from_timespecs(
+    const struct timespec *min, const struct timespec *now
+) {
+    long duration = (min->tv_sec - now->tv_sec) * 1000000 +
+                    (min->tv_nsec - now->tv_nsec) / 1000;
+
+    usleep(duration);
+}
+
 void schedule() {
     while (1) {
-        struct uthread_ctx *current = sched_ctx.current;
-        struct uthread_ctx *next;
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
 
-        if (current->next == NULL) {
-            next = sched_ctx.queue.first;
-        } else {
-            next = current->next;
+        struct timespec min = {
+            .tv_sec = LONG_MAX,
+            .tv_nsec = LONG_MAX,
+        };
+
+        struct uthread_ctx *initial = sched_ctx.current;
+        struct uthread_ctx *next = initial->next;
+
+        while (next != initial) {
+            if (next == NULL) {
+                next = sched_ctx.queue.first;
+                continue;
+            }
+
+            if (timespec_less(&next->wait_until, &now)) {
+                break;
+            }
+
+            timespec_min(&min, &next->wait_until);
+            next = next->next;
         }
 
-        if (current == next) {
-            printf("current == next\n");
-            setcontext(&current->uctx);
+        if (next == initial && timespec_less(&now, &initial->wait_until)) {
+            usleep_from_timespecs(&min, &now);
             continue;
         }
 
@@ -64,6 +110,9 @@ int uthread_create(uthread_t *tid, void *(*start)(void *), void *arg) {
 
     ctx->start = start;
     ctx->arg = arg;
+
+    ctx->wait_until.tv_sec = 0;
+    ctx->wait_until.tv_nsec = 0;
 
     if (!sched_ctx.queue.first) {
         sched_ctx.queue.first = ctx;
@@ -107,7 +156,7 @@ void main_ctx_init() {
     }
 }
 
-int uthread_yield() {
+void uthread_yield() {
     if (!sched_ctx.init) {
         sched_ctx_init();
     }
@@ -120,6 +169,24 @@ int uthread_yield() {
     if (swapcontext(&sched_ctx.current->uctx, &sched_ctx.uctx) < 0) {
         panic("swapcontext");
     }
+}
 
-    return 0;
+void uthread_sleep(long duration_s) {
+    uthread_usleep(duration_s * 1000000l);
+}
+
+void uthread_usleep(long duration_us) {
+    if (sched_ctx.current == NULL) {
+        main_ctx_init();
+    }
+
+    struct timespec *deadline = &sched_ctx.current->wait_until;
+
+    clock_gettime(CLOCK_MONOTONIC, deadline);
+
+    deadline->tv_nsec += duration_us * 1000l;
+    deadline->tv_sec += deadline->tv_nsec / 1000000000l;
+    deadline->tv_nsec = deadline->tv_nsec % 1000000000l;
+
+    uthread_yield();
 }

@@ -1,3 +1,4 @@
+#include <time.h>
 #include <ucontext.h>
 
 #define panic(fmt, args...)                                                    \
@@ -10,6 +11,8 @@ struct uthread_ctx {
     void *(*start)(void *);
     void *arg;
     void *retval;
+
+    struct timespec wait_until;
 
     ucontext_t uctx;
     struct uthread_ctx *next;
@@ -32,4 +35,7 @@ struct sched_ctx {
 typedef struct uthread_ctx *uthread_t;
 
 int uthread_create(uthread_t *tid, void *(*start)(void *), void *arg);
-int uthread_yield();
+
+void uthread_yield();
+void uthread_sleep(long duration_s);
+void uthread_usleep(long duration_us);
