@@ -78,10 +78,19 @@ int test_sleep() {
     return 0;
 }
 
+int test_single_sleep() {
+    for (int i = 0; i < 10; i++) {
+        uthread_usleep(500 * 1000);
+    }
+
+    return 0;
+}
+
 int main() {
 
     TEST("Join", test_join);
     TEST("Sleep", test_sleep);
+    TEST("One Thread Sleep", test_single_sleep);
 
     return 0;
 }
