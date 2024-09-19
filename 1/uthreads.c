@@ -35,60 +35,113 @@ void timespec_min(struct timespec *min, const struct timespec *curr) {
     }
 }
 
-void usleep_from_timespecs(
-    const struct timespec *now, const struct timespec *min
-) {
+long timespec_diff_us(const struct timespec *now, const struct timespec *min) {
     long duration = (min->tv_sec - now->tv_sec) * 1000000 +
                     (min->tv_nsec - now->tv_nsec) / 1000;
 
-    usleep(duration);
+    return duration;
+}
+
+void handle_exit(struct uthread_ctx *uthread) {
+    if (uthread == sched_ctx.queue.first) {
+        sched_ctx.queue.first = uthread->next;
+    }
+
+    struct uthread_ctx *curr = sched_ctx.queue.first;
+
+    while (curr) {
+        if (curr->next == uthread) {
+            curr->next = uthread->next;
+
+            if (sched_ctx.queue.last == uthread) {
+                sched_ctx.queue.last = curr;
+            }
+        }
+
+        if (curr->waiting_on == uthread) {
+            curr->waiting_on = NULL;
+        }
+
+        curr = curr->next;
+    }
+
+    if (uthread->detached) {
+        destroy_stack(
+            (void *)uthread + sizeof(struct uthread_ctx) - STACK_SIZE,
+            STACK_SIZE
+        );
+    }
+}
+
+void do_schedule() {
+    struct uthread_ctx *current = sched_ctx.current;
+
+    if (current->exited) {
+        struct uthread_ctx *next = current->next ?: sched_ctx.queue.first;
+        handle_exit(current);
+        current = next;
+    }
+
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+
+    struct timespec min = {
+        .tv_sec = LONG_MAX,
+        .tv_nsec = LONG_MAX,
+    };
+
+    timespec_min(&min, &current->wait_until);
+
+    struct uthread_ctx *next = current->next;
+
+    while (next != current) {
+        // Wrap to the beginning of the queue
+        if (next == NULL) {
+            next = sched_ctx.queue.first;
+            continue;
+        }
+
+        // Skip threads that are joining other thread
+        if (next->waiting_on) {
+            next = next->next;
+            continue;
+        }
+
+        timespec_min(&min, &next->wait_until);
+
+        if (timespec_less(&next->wait_until, &now)) {
+            break;
+        }
+
+        next = next->next;
+    }
+
+    if (timespec_less(&now, &min)) {
+        long duration = timespec_diff_us(&now, &min);
+        usleep(duration);
+        return;
+    }
+
+    if (next->waiting_on) {
+        return;
+    }
+
+    sched_ctx.current = next;
+
+    if (swapcontext(&sched_ctx.uctx, &next->uctx) < 0) {
+        panic("swapcontext");
+    }
 }
 
 void schedule() {
     while (1) {
-        struct timespec now;
-        clock_gettime(CLOCK_MONOTONIC, &now);
-
-        struct timespec min = {
-            .tv_sec = LONG_MAX,
-            .tv_nsec = LONG_MAX,
-        };
-
-        struct uthread_ctx *initial = sched_ctx.current;
-        struct uthread_ctx *next = initial->next;
-
-        timespec_min(&min, &initial->wait_until);
-
-        while (next != initial) {
-            if (next == NULL) {
-                next = sched_ctx.queue.first;
-                continue;
-            }
-
-            timespec_min(&min, &next->wait_until);
-
-            if (timespec_less(&next->wait_until, &now)) {
-                break;
-            }
-
-            next = next->next;
-        }
-
-        if (timespec_less(&now, &min)) {
-            usleep_from_timespecs(&now, &min);
-            continue;
-        }
-
-        sched_ctx.current = next;
-
-        if (swapcontext(&sched_ctx.uctx, &next->uctx) < 0) {
-            panic("swapcontext");
-        }
+        do_schedule();
     }
 }
 
 void uthread_entry(struct uthread_ctx *ctx) {
     ctx->retval = ctx->start(ctx->arg);
+    ctx->exited = 1;
 }
 
 int uthread_create(uthread_t *tid, void *(*start)(void *), void *arg) {
@@ -114,6 +167,10 @@ int uthread_create(uthread_t *tid, void *(*start)(void *), void *arg) {
     ctx->start = start;
     ctx->arg = arg;
 
+    ctx->exited = 0;
+    ctx->waiting_on = NULL;
+    ctx->detached = 0;
+
     ctx->wait_until.tv_sec = 0;
     ctx->wait_until.tv_nsec = 0;
 
@@ -124,6 +181,8 @@ int uthread_create(uthread_t *tid, void *(*start)(void *), void *arg) {
         sched_ctx.queue.last->next = ctx;
         sched_ctx.queue.last = ctx;
     }
+
+    *tid = ctx;
 
     uthread_yield();
 
@@ -192,4 +251,33 @@ void uthread_usleep(long duration_us) {
     deadline->tv_nsec = deadline->tv_nsec % 1000000000l;
 
     uthread_yield();
+}
+
+int uthread_join(uthread_t tid, void **retval) {
+    if (sched_ctx.current == NULL) {
+        main_ctx_init();
+    }
+
+    if (tid->detached) {
+        return -1;
+    }
+
+    sched_ctx.current->waiting_on = tid;
+    uthread_yield();
+
+    *retval = tid->retval;
+
+    destroy_stack(
+        (void *)tid + sizeof(struct uthread_ctx) - STACK_SIZE, STACK_SIZE
+    );
+
+    return 0;
+}
+
+void uthread_detach() {
+    if (sched_ctx.current == NULL) {
+        main_ctx_init();
+    }
+
+    sched_ctx.current->detached = 1;
 }

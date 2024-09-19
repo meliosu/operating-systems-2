@@ -17,23 +17,53 @@ void *thread(void *arg) {
     }
 }
 
+void *thread2(void *_) {
+    for (int i = 0; i < 3; i++) {
+        uthread_sleep(1);
+        printf("thread 2\n");
+    }
+
+    return (void *)0xdeadbeef;
+}
+
 int main() {
-    int nthreads = 2;
+    /*int nthreads = 2;*/
+    /**/
+    /*int err;*/
+    /*uthread_t tid[nthreads];*/
+    /**/
+    /*for (int i = 0; i < nthreads; i++) {*/
+    /*    err = uthread_create(&tid[i], thread, (void *)(long)i);*/
+    /*    if (err) {*/
+    /*        perror("uthread_create\n");*/
+    /*        return -1;*/
+    /*    }*/
+    /*}*/
+    /**/
+    /*while (1) {*/
+    /*    uthread_sleep(30);*/
+    /*}*/
 
     int err;
-    uthread_t tid[nthreads];
+    uthread_t tid;
 
-    for (int i = 0; i < nthreads; i++) {
-        err = uthread_create(&tid[i], thread, (void *)(long)i);
-        if (err) {
-            perror("uthread_create\n");
-            return -1;
-        }
+    err = uthread_create(&tid, thread2, NULL);
+    if (err) {
+        printf("uthread_create\n");
+        return -1;
     }
 
-    while (1) {
-        uthread_sleep(30);
+    void *ret;
+
+    /*uthread_sleep(5);*/
+
+    err = uthread_join(tid, &ret);
+    if (err) {
+        printf("uthread_join\n");
+        return -1;
     }
+
+    printf("returned: %p\n", ret);
 
     return 0;
 }
