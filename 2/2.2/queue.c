@@ -39,6 +39,7 @@ int queue_add(queue_t *queue, int val) {
     if (err) {
         panic("queue_add: mutex_lock: %s\n", strerror(err));
     }
+
 #elif defined SYNC_SEM
     err = sem_wait(&queue->sem_empty);
     if (err) {
@@ -145,9 +146,7 @@ int queue_get(queue_t *queue, int *val) {
         panic("queue_get: sem_wait on sem_lock")
     }
 
-#endif
-
-#if defined SYNC_COND
+#elif defined SYNC_COND
     err = pthread_mutex_lock(&queue->mutex);
     if (err) {
         panic("queue_get: mutex_lock: %s\n", strerror(err));
