@@ -7,7 +7,7 @@
 
 #include "queue.h"
 
-#define SWAP_PROBABILITY 2
+#define SWAP_INV_FREQUENCY 2
 
 int counter_increasing;
 int counter_decreasing;
@@ -101,7 +101,7 @@ void traverse_permute(queue_t *queue, int *counter) {
     while (third) {
         node_lock_write(third);
 
-        if (rand() < RAND_MAX / SWAP_PROBABILITY) {
+        if (rand() < RAND_MAX / SWAP_INV_FREQUENCY) {
             swap_nodes(first, &second, &third);
         }
 
