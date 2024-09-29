@@ -1,5 +1,5 @@
-#ifndef PROXY_LOG
-#define PROXY_LOG
+#ifndef PROXY_LOG_H
+#define PROXY_LOG_H
 
 #include <stdio.h>
 
@@ -36,4 +36,4 @@ extern int log_level;
 void init_log();
 void do_log(char *fmt, ...);
 
-#endif /* PROXY_LOG */
+#endif /* PROXY_LOG_H */
