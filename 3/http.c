@@ -10,13 +10,33 @@
 #define STATE_BODY 2
 #define STATE_FINISHED 3
 
+int slice_cmp(slice_t slice, char *string) {
+    int idx;
+
+    for (idx = 0; idx < slice.len; idx += 1) {
+        if (slice.ptr[idx] != string[idx]) {
+            return 1;
+        }
+
+        if (string[idx] == 0) {
+            return 1;
+        }
+    }
+
+    if (string[idx] != 0) {
+        return 1;
+    }
+
+    return 0;
+}
+
 void http_headers_init(struct http_headers *headers) {
     headers->first = NULL;
     headers->last = NULL;
 }
 
 void http_headers_destroy(struct http_headers *headers) {
-    struct http_header *curr;
+    struct http_header *curr = headers->first;
 
     while (curr) {
         struct http_header *next = curr->next;
@@ -28,6 +48,7 @@ void http_headers_destroy(struct http_headers *headers) {
 void http_headers_add(
     struct http_headers *headers, struct http_header *header
 ) {
+
     struct http_header *header_heap = malloc(sizeof(*header_heap));
     header_heap->key = header->key;
     header_heap->value = header->value;
@@ -35,7 +56,9 @@ void http_headers_add(
     if (!headers->first) {
         headers->first = headers->last = header_heap;
     } else {
-        headers->last = headers->last->next = header_heap;
+        headers->last->next = header_heap;
+        headers->last = header_heap;
+        /*headers->last = headers->last->next = header_heap;*/
     }
 }
 
@@ -49,7 +72,7 @@ void http_response_init(struct http_response *response) {
 
 void http_request_destroy(struct http_request *request) {
     http_headers_destroy(&request->headers);
-}
+};
 
 void http_response_destroy(struct http_response *response) {
     http_headers_destroy(&response->headers);
@@ -94,11 +117,16 @@ int http_method_parse(
         return -1;
     }
 
-    if (!strncmp(buffer + cursor->pos, "GET", end)) {
+    slice_t method_slice = {
+        .ptr = buffer + cursor->pos,
+        .len = end,
+    };
+
+    if (!slice_cmp(method_slice, "GET")) {
         *method = METHOD_GET;
-    } else if (!strncmp(buffer + cursor->pos, "POST", end)) {
+    } else if (!slice_cmp(method_slice, "POST")) {
         *method = METHOD_POST;
-    } else if (!strncmp(buffer + cursor->pos, "HEAD", end)) {
+    } else if (!slice_cmp(method_slice, "HEAD")) {
         *method = METHOD_HEAD;
     } else {
         *method = METHOD_OTHER;
@@ -154,21 +182,21 @@ int http_parse_path(
 }
 
 int http_parse_space(struct http_cursor *cursor, char *buffer, int len) {
-    if (sscanf(buffer + cursor->pos, " ") == -1) {
+    if (buffer[cursor->pos] == ' ') {
+        cursor->pos += 1;
+        return 0;
+    } else {
         return -1;
     }
-
-    cursor->pos += 1;
-    return 0;
 }
 
 int http_parse_crlf(struct http_cursor *cursor, char *buffer, int len) {
-    if (sscanf(buffer + cursor->pos, "\r\n") == -1) {
+    if (buffer[cursor->pos] == '\r' && buffer[cursor->pos + 1] == '\n') {
+        cursor->pos += 2;
+        return 0;
+    } else {
         return -1;
     }
-
-    cursor->pos += 2;
-    return 0;
 }
 
 int http_request_parse_status(
@@ -275,24 +303,31 @@ int http_header_parse(
         return -2;
     }
 
-    int key_end;
-    int value_end;
+    int key_end = 0;
+    int value_end = 0;
     int matched;
 
     matched = sscanf(
         buffer + cursor->pos, "%*[^:]%n: %*s%n\r\n", &key_end, &value_end
     );
 
-    if (matched <= 0) {
+    if (matched == -1) {
         return -1;
-    } else if (matched == 1) {
-        header->key.ptr = buffer + cursor->pos;
-        header->key.len = key_end;
+    }
+
+    if (key_end == 0) {
+        return -1;
     } else {
         header->key.ptr = buffer + cursor->pos;
         header->key.len = key_end;
-        header->value.ptr = buffer + key_end + 2;
+    }
+
+    if (value_end > key_end + 2) {
+        header->value.ptr = buffer + cursor->pos + key_end + 2;
         header->value.len = value_end - key_end - 2;
+    } else {
+        header->value.ptr = NULL;
+        header->value.len = 0;
     }
 
     cursor->pos += value_end + 2;
@@ -303,9 +338,11 @@ struct http_header *http_header_find(struct http_headers *hdrs, char *hdr) {
     struct http_header *curr = hdrs->first;
 
     while (curr) {
-        if (!strncmp(curr->key.ptr, hdr, curr->key.len)) {
+        if (!slice_cmp(curr->key, hdr)) {
             break;
         }
+
+        curr = curr->next;
     }
 
     return curr;
@@ -313,11 +350,11 @@ struct http_header *http_header_find(struct http_headers *hdrs, char *hdr) {
 
 long http_body_length(struct http_headers *headers) {
     long len = -1;
+    char *end;
     struct http_header *c_length;
 
     if ((c_length = http_header_find(headers, "Content-Length"))) {
-        char *end;
-        len = strtol(c_length->value.ptr, &end, c_length->value.len);
+        len = strtol(c_length->value.ptr, &end, 10);
 
         if (end - c_length->value.ptr != c_length->value.len) {
             len = -1;
@@ -378,6 +415,7 @@ int http_request_parse(
                 cursor->state = STATE_FINISHED;
             } else {
                 cursor->pos = len;
+                return -2;
             }
 
             continue;
@@ -438,6 +476,7 @@ int http_response_parse(
                 cursor->state = STATE_FINISHED;
             } else {
                 cursor->pos = len;
+                return -2;
             }
 
             continue;
