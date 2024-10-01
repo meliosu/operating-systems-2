@@ -10,7 +10,7 @@
 #define STATE_BODY 2
 #define STATE_FINISHED 3
 
-int slice_cmp(slice_t slice, char *string) {
+static int slice_cmp(slice_t slice, char *string) {
     int idx;
 
     for (idx = 0; idx < slice.len; idx += 1) {
@@ -45,9 +45,8 @@ void http_headers_destroy(struct http_headers *headers) {
     }
 }
 
-void http_headers_add(
-    struct http_headers *headers, struct http_header *header
-) {
+static void
+http_headers_add(struct http_headers *headers, struct http_header *header) {
 
     struct http_header *header_heap = malloc(sizeof(*header_heap));
     header_heap->key = header->key;
@@ -56,9 +55,7 @@ void http_headers_add(
     if (!headers->first) {
         headers->first = headers->last = header_heap;
     } else {
-        headers->last->next = header_heap;
-        headers->last = header_heap;
-        /*headers->last = headers->last->next = header_heap;*/
+        headers->last = headers->last->next = header_heap;
     }
 }
 
@@ -83,12 +80,12 @@ void http_cursor_init(struct http_cursor *cursor) {
     cursor->state = STATE_STATUSLINE;
 }
 
-void http_cursor_copy(struct http_cursor *out, struct http_cursor *in) {
+static void http_cursor_copy(struct http_cursor *out, struct http_cursor *in) {
     out->pos = in->pos;
     out->state = in->state;
 }
 
-int http_version_parse(
+static int http_version_parse(
     struct http_version *version,
     struct http_cursor *cursor,
     char *buffer,
@@ -108,7 +105,7 @@ int http_version_parse(
     return 0;
 }
 
-int http_method_parse(
+static int http_method_parse(
     int *method, struct http_cursor *cursor, char *buffer, int len
 ) {
     int end;
@@ -136,7 +133,7 @@ int http_method_parse(
     return 0;
 }
 
-int http_status_parse(
+static int http_status_parse(
     int *status, struct http_cursor *cursor, char *buffer, int len
 ) {
     int res;
@@ -151,7 +148,7 @@ int http_status_parse(
     return 0;
 }
 
-int http_phrase_parse(
+static int http_phrase_parse(
     slice_t *phrase, struct http_cursor *cursor, char *buffer, int len
 ) {
     int end;
@@ -166,7 +163,7 @@ int http_phrase_parse(
     return 0;
 }
 
-int http_parse_path(
+static int http_path_parse(
     slice_t *path, struct http_cursor *cursor, char *buffer, int len
 ) {
     int end;
@@ -181,7 +178,11 @@ int http_parse_path(
     return 0;
 }
 
-int http_parse_space(struct http_cursor *cursor, char *buffer, int len) {
+static int http_space_parse(struct http_cursor *cursor, char *buffer, int len) {
+    if (cursor->pos >= len) {
+        return -1;
+    }
+
     if (buffer[cursor->pos] == ' ') {
         cursor->pos += 1;
         return 0;
@@ -190,7 +191,11 @@ int http_parse_space(struct http_cursor *cursor, char *buffer, int len) {
     }
 }
 
-int http_parse_crlf(struct http_cursor *cursor, char *buffer, int len) {
+static int http_crlf_parse(struct http_cursor *cursor, char *buffer, int len) {
+    if (cursor->pos >= len - 1) {
+        return -1;
+    }
+
     if (buffer[cursor->pos] == '\r' && buffer[cursor->pos + 1] == '\n') {
         cursor->pos += 2;
         return 0;
@@ -217,16 +222,16 @@ int http_request_parse_status(
         return -1;
     }
 
-    if (http_parse_space(&c, buffer, len) < 0) {
+    if (http_space_parse(&c, buffer, len) < 0) {
         return -1;
     }
 
     slice_t path;
-    if (http_parse_path(&path, &c, buffer, len) < 0) {
+    if (http_path_parse(&path, &c, buffer, len) < 0) {
         return -1;
     }
 
-    if (http_parse_space(&c, buffer, len) < 0) {
+    if (http_space_parse(&c, buffer, len) < 0) {
         return -1;
     }
 
@@ -235,7 +240,7 @@ int http_request_parse_status(
         return -1;
     }
 
-    if (http_parse_crlf(&c, buffer, len) < 0) {
+    if (http_crlf_parse(&c, buffer, len) < 0) {
         return -1;
     }
 
@@ -264,7 +269,7 @@ int http_response_parse_status(
         return -1;
     }
 
-    if (http_parse_space(&c, buffer, len) < 0) {
+    if (http_space_parse(&c, buffer, len) < 0) {
         return -1;
     }
 
@@ -273,7 +278,7 @@ int http_response_parse_status(
         return -1;
     }
 
-    if (http_parse_space(&c, buffer, len) < 0) {
+    if (http_space_parse(&c, buffer, len) < 0) {
         return -1;
     }
 
@@ -282,7 +287,7 @@ int http_response_parse_status(
         return -1;
     }
 
-    if (http_parse_crlf(&c, buffer, len) < 0) {
+    if (http_crlf_parse(&c, buffer, len) < 0) {
         return -1;
     }
 
@@ -293,7 +298,7 @@ int http_response_parse_status(
     return 0;
 }
 
-int http_header_parse(
+static int http_header_parse(
     struct http_header *header,
     struct http_cursor *cursor,
     char *buffer,
@@ -334,11 +339,11 @@ int http_header_parse(
     return 0;
 }
 
-struct http_header *http_header_find(struct http_headers *hdrs, char *hdr) {
+struct http_header *http_header_find(struct http_headers *hdrs, char *key) {
     struct http_header *curr = hdrs->first;
 
     while (curr) {
-        if (!slice_cmp(curr->key, hdr)) {
+        if (!slice_cmp(curr->key, key)) {
             break;
         }
 
@@ -348,7 +353,7 @@ struct http_header *http_header_find(struct http_headers *hdrs, char *hdr) {
     return curr;
 }
 
-long http_body_length(struct http_headers *headers) {
+static long http_body_length(struct http_headers *headers) {
     long len = -1;
     char *end;
     struct http_header *c_length;
@@ -387,7 +392,7 @@ int http_request_parse(
             continue;
 
         case STATE_HEADER:
-            if (!http_parse_crlf(cursor, buffer, len)) {
+            if (!http_crlf_parse(cursor, buffer, len)) {
                 body_len = http_body_length(&request->headers);
 
                 if (body_len <= 0) {
@@ -448,7 +453,7 @@ int http_response_parse(
             continue;
 
         case STATE_HEADER:
-            if (!http_parse_crlf(cursor, buffer, len)) {
+            if (!http_crlf_parse(cursor, buffer, len)) {
                 body_len = http_body_length(&response->headers);
 
                 if (body_len <= 0) {
