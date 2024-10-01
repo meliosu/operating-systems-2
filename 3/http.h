@@ -6,6 +6,10 @@
 #define METHOD_HEAD 3
 #define METHOD_OTHER 4
 
+#define http_headers_foreach(headers, curr)                                    \
+    for (struct http_header *curr = headers.first; curr != NULL;               \
+         curr = curr->next)
+
 typedef struct slice_t {
     char *ptr;
     long len;
