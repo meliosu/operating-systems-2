@@ -21,15 +21,17 @@
 extern int log_level;
 
 #define LOG(level, label, color, fmt, args...)                                 \
-    {                                                                          \
+    do {                                                                       \
         if (log_level >= level) {                                              \
-            do_log(color "%-6s " COLOR_DEFAULT fmt, label, ##args);            \
+            fprintf(                                                           \
+                stderr, "%s " fmt "\n", color label COLOR_DEFAULT, ##args      \
+            );                                                                 \
         }                                                                      \
-    }
+    } while (0);
 
 #define ERROR(args...) LOG(LEVEL_ERROR, "ERROR", COLOR_RED, ##args)
-#define WARN(args...) LOG(LEVEL_WARN, "WARN", COLOR_YELLOW, ##args)
-#define INFO(args...) LOG(LEVEL_INFO, "INFO", COLOR_DEFAULT, ##args)
+#define WARN(args...) LOG(LEVEL_WARN, "WARN ", COLOR_YELLOW, ##args)
+#define INFO(args...) LOG(LEVEL_INFO, "INFO ", COLOR_DEFAULT, ##args)
 #define DEBUG(args...) LOG(LEVEL_DEBUG, "DEBUG", COLOR_CYAN, ##args)
 #define TRACE(args...) LOG(LEVEL_TRACE, "TRACE", COLOR_MAGENTA, ##args)
 
