@@ -1,7 +1,7 @@
 CC=gcc
-FLAGS=-Wall -g
+FLAGS=-Wall -g -O2
 
-OBJECTS=log.o http.o
+OBJECTS=log.o http.o hash.o
 OUT_DIR=target
 
 all: main
@@ -14,6 +14,9 @@ log.o:
 
 http.o:
 	$(CC) $(FLAGS) -c http.c
+
+hash.o:
+	$(CC) $(FLAGS) -c hash.c
 
 
 clean:
