@@ -1,13 +1,16 @@
 CC=gcc
 FLAGS=-Wall -g -O2
 
-OBJECTS=log.o http.o hash.o slice.o
+OBJECTS=log.o http.o hash.o slice.o hashmap.o sieve.o main.o
 OUT_DIR=target
 
 all: main
 
-main: main.o $(OBJECTS)
-	$(CC) $(FLAGS) -o target/proxy main.o $(OBJECTS)
+main: $(OBJECTS)
+	$(CC) $(FLAGS) -o target/proxy $(OBJECTS)
+
+main.o:
+	$(CC) $(FLAGS) -c main.c
 
 log.o:
 	$(CC) $(FLAGS) -c log.c
@@ -20,6 +23,12 @@ hash.o:
 
 slice.o:
 	$(CC) $(FLAGS) -c slice.c
+
+hashmap.o:
+	$(CC) $(FLAGS) -c hashmap.c
+
+sieve.o:
+	$(CC) $(FLAGS) -c sieve.c
 
 
 clean:
