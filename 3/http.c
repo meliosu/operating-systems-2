@@ -4,31 +4,12 @@
 #include <string.h>
 
 #include "http.h"
+#include "slice.h"
 
 #define STATE_STATUSLINE 0
 #define STATE_HEADER 1
 #define STATE_BODY 2
 #define STATE_FINISHED 3
-
-static int slice_cmp(slice_t slice, char *string) {
-    int idx;
-
-    for (idx = 0; idx < slice.len; idx += 1) {
-        if (slice.ptr[idx] != string[idx]) {
-            return 1;
-        }
-
-        if (string[idx] == 0) {
-            return 1;
-        }
-    }
-
-    if (string[idx] != 0) {
-        return 1;
-    }
-
-    return 0;
-}
 
 void http_headers_init(struct http_headers *headers) {
     headers->first = NULL;
@@ -119,11 +100,11 @@ static int http_method_parse(
         .len = end,
     };
 
-    if (!slice_cmp(method_slice, "GET")) {
+    if (!slice_cmp_str(method_slice, "GET")) {
         *method = METHOD_GET;
-    } else if (!slice_cmp(method_slice, "POST")) {
+    } else if (!slice_cmp_str(method_slice, "POST")) {
         *method = METHOD_POST;
-    } else if (!slice_cmp(method_slice, "HEAD")) {
+    } else if (!slice_cmp_str(method_slice, "HEAD")) {
         *method = METHOD_HEAD;
     } else {
         *method = METHOD_OTHER;
@@ -343,7 +324,7 @@ struct http_header *http_header_find(struct http_headers *hdrs, char *key) {
     struct http_header *curr = hdrs->first;
 
     while (curr) {
-        if (!slice_cmp(curr->key, key)) {
+        if (!slice_cmp_str(curr->key, key)) {
             break;
         }
 

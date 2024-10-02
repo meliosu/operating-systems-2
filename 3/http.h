@@ -1,6 +1,8 @@
 #ifndef PROXY_HTTP_H
 #define PROXY_HTTP_H
 
+#include "slice.h"
+
 #define METHOD_GET 1
 #define METHOD_POST 2
 #define METHOD_HEAD 3
@@ -9,11 +11,6 @@
 #define http_headers_foreach(headers, curr)                                    \
     for (struct http_header *curr = headers.first; curr != NULL;               \
          curr = curr->next)
-
-typedef struct slice_t {
-    char *ptr;
-    long len;
-} slice_t;
 
 struct http_header {
     slice_t key;
