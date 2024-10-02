@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "hashmap.h"
+#include "response.h"
 #include "sieve.h"
 
 void sieve_cache_init(struct cache *cache, int cap) {
@@ -16,7 +17,9 @@ void sieve_cache_destroy(struct cache *cache) {
     hashmap_destroy(&cache->map);
 }
 
-void sieve_cache_lookup(struct cache *cache, slice_t request, void **response) {
+void sieve_cache_lookup(
+    struct cache *cache, slice_t request, struct response **response
+) {
     pthread_rwlock_rdlock(&cache->lock);
 
     struct cache_entry *cache_entry;
@@ -26,6 +29,8 @@ void sieve_cache_lookup(struct cache *cache, slice_t request, void **response) {
         *response = cache_entry->response;
         bool visited = 1;
         __atomic_store(&cache_entry->visited, &visited, __ATOMIC_RELAXED);
+    } else {
+        *response = NULL;
     }
 
     pthread_rwlock_unlock(&cache->lock);
@@ -64,8 +69,6 @@ static void sieve_cache_evict(struct cache *cache) {
 
     hashmap_remove(&cache->map, curr->request, NULL);
     free(curr);
-
-    // NOTE: maybe cleanup response stuff also?
 }
 
 static void sieve_cache_insert_nonfull(
@@ -85,7 +88,9 @@ static void sieve_cache_insert_nonfull(
     cache->len += 1;
 }
 
-void sieve_cache_insert(struct cache *cache, slice_t request, void *response) {
+void sieve_cache_insert(
+    struct cache *cache, slice_t request, struct response *response
+) {
     struct cache_entry *entry = malloc(sizeof(*entry));
 
     entry->next = entry->prev = NULL;
@@ -93,6 +98,47 @@ void sieve_cache_insert(struct cache *cache, slice_t request, void *response) {
     entry->response = response;
 
     pthread_rwlock_wrlock(&cache->lock);
+
+    if (cache->len == cache->cap) {
+        sieve_cache_evict(cache);
+    }
+
+    sieve_cache_insert_nonfull(cache, request, entry);
+
+    pthread_rwlock_unlock(&cache->lock);
+}
+
+void sieve_cache_get_or_insert(
+    struct cache *cache,
+    slice_t request,
+    struct response **get,
+    struct response *insert
+) {
+    *get = NULL;
+
+    sieve_cache_lookup(cache, request, get);
+
+    if (*get) {
+        return;
+    }
+
+    struct cache_entry *entry = malloc(sizeof(*entry));
+
+    entry->next = entry->prev = NULL;
+    entry->request = request;
+    entry->response = insert;
+
+    pthread_rwlock_wrlock(&cache->lock);
+
+    struct cache_entry *present_entry = NULL;
+    hashmap_get(&cache->map, request, &present_entry);
+
+    if (present_entry) {
+        *get = present_entry->response;
+        present_entry->visited = true;
+        pthread_rwlock_unlock(&cache->lock);
+        return;
+    }
 
     if (cache->len == cache->cap) {
         sieve_cache_evict(cache);
