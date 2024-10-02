@@ -7,5 +7,6 @@ typedef struct slice_t {
 } slice_t;
 
 int slice_cmp_str(slice_t slice, char *string);
+int slice_cmp(slice_t slice, slice_t other);
 
 #endif /* PROXY_SLICE_H */

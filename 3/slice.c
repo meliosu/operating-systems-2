@@ -19,3 +19,17 @@ int slice_cmp_str(slice_t slice, char *string) {
 
     return 0;
 }
+
+int slice_cmp(slice_t slice, slice_t other) {
+    if (slice.len != other.len) {
+        return 1;
+    }
+
+    for (int i = 0; i < slice.len; i++) {
+        if (slice.ptr[i] != other.ptr[i]) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
