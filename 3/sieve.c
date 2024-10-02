@@ -7,7 +7,7 @@
 void sieve_cache_init(struct cache *cache, int cap) {
     memset(cache, 0, sizeof(*cache));
     cache->cap = cap;
-    hashmap_init(&cache->map, cap);
+    hashmap_init(&cache->map, cap * 2);
     pthread_rwlock_init(&cache->lock, NULL);
 }
 
