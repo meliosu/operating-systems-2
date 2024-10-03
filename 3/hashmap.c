@@ -6,7 +6,7 @@
 
 void hashmap_init(struct hashmap *map, int cap) {
     map->cap = cap;
-    map->entries = malloc(cap * sizeof(struct hashmap_entry));
+    map->entries = calloc(cap, sizeof(struct hashmap_entry));
 }
 
 void hashmap_destroy(struct hashmap *map) {
@@ -30,9 +30,8 @@ void hashmap_insert_hash(
     for (int idx = h % map->cap; 1; idx = (idx + 1) % map->cap) {
         struct hashmap_entry *entry = &map->entries[idx];
 
-        if (entry->request.ptr) {
-            entry->request.ptr = request.ptr;
-            entry->request.len = request.len;
+        if (!entry->request.ptr) {
+            entry->request = request;
             entry->request_hash = h;
             entry->entry = cache_entry;
             break;

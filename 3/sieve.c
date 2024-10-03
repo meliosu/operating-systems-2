@@ -1,4 +1,5 @@
 #include <pthread.h>
+#include <stdatomic.h>
 #include <string.h>
 
 #include "hashmap.h"
@@ -22,13 +23,12 @@ void sieve_cache_lookup(
 ) {
     pthread_rwlock_rdlock(&cache->lock);
 
-    struct cache_entry *cache_entry;
+    struct cache_entry *cache_entry = NULL;
     hashmap_get(&cache->map, request, &cache_entry);
 
     if (cache_entry) {
         *response = cache_entry->response;
-        bool visited = 1;
-        __atomic_store(&cache_entry->visited, &visited, __ATOMIC_RELAXED);
+        atomic_store((atomic_bool *)&cache_entry->visited, true);
     } else {
         *response = NULL;
     }
@@ -68,6 +68,7 @@ static void sieve_cache_evict(struct cache *cache) {
     }
 
     hashmap_remove(&cache->map, curr->request, NULL);
+    cache->len -= 1;
     free(curr);
 }
 
