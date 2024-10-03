@@ -1,8 +1,8 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "hash.h"
 #include "hashmap.h"
-#include "slice.h"
 
 void hashmap_init(struct hashmap *map, int cap) {
     map->cap = cap;
@@ -14,25 +14,20 @@ void hashmap_destroy(struct hashmap *map) {
 }
 
 void hashmap_insert(
-    struct hashmap *map, slice_t request, struct cache_entry *cache_entry
+    struct hashmap *map, char *url, struct cache_entry *cache_entry
 ) {
-    hashmap_insert_hash(
-        map, request, hash(request.ptr, request.len), cache_entry
-    );
+    hashmap_insert_hash(map, url, hash(url, strlen(url)), cache_entry);
 }
 
 void hashmap_insert_hash(
-    struct hashmap *map,
-    slice_t request,
-    uint64_t h,
-    struct cache_entry *cache_entry
+    struct hashmap *map, char *url, uint64_t h, struct cache_entry *cache_entry
 ) {
     for (int idx = h % map->cap; 1; idx = (idx + 1) % map->cap) {
         struct hashmap_entry *entry = &map->entries[idx];
 
-        if (!entry->request.ptr) {
-            entry->request = request;
-            entry->request_hash = h;
+        if (!entry->url) {
+            entry->url = url;
+            entry->url_hash = h;
             entry->entry = cache_entry;
             break;
         }
@@ -40,19 +35,19 @@ void hashmap_insert_hash(
 }
 
 void hashmap_get(
-    struct hashmap *map, slice_t request, struct cache_entry **cache_entry
+    struct hashmap *map, char *url, struct cache_entry **cache_entry
 ) {
-    uint64_t h = hash(request.ptr, request.len);
+    uint64_t h = hash(url, strlen(url));
 
     for (int idx = h % map->cap; 1; idx = (idx + 1) % map->cap) {
         struct hashmap_entry *entry = &map->entries[idx];
 
-        if (!entry->request.ptr) {
+        if (!entry->url) {
             break;
         }
 
-        if (entry->request_hash == h) {
-            if (!slice_cmp(request, entry->request)) {
+        if (entry->url_hash == h) {
+            if (!strcmp(url, entry->url)) {
                 if (cache_entry) {
                     *cache_entry = entry->entry;
                 }
@@ -64,28 +59,27 @@ void hashmap_get(
 }
 
 void hashmap_remove(
-    struct hashmap *map, slice_t request, struct cache_entry **cache_entry
+    struct hashmap *map, char *url, struct cache_entry **cache_entry
 ) {
-    uint64_t h = hash(request.ptr, request.len);
+    uint64_t h = hash(url, strlen(url));
 
     int idx;
 
     for (idx = h % map->cap; 1; idx = (idx + 1) % map->cap) {
         struct hashmap_entry *entry = &map->entries[idx];
 
-        if (!entry->request.ptr) {
+        if (!entry->url) {
             return;
         }
 
-        if (entry->request_hash == h) {
-            if (!slice_cmp(request, entry->request)) {
+        if (entry->url_hash == h) {
+            if (!strcmp(url, entry->url)) {
                 if (cache_entry) {
                     *cache_entry = entry->entry;
                 }
 
-                entry->request.ptr = NULL;
-                entry->request.len = 0;
-                entry->request_hash = 0;
+                entry->url = NULL;
+                entry->url_hash = 0;
                 break;
             }
         }
@@ -94,23 +88,19 @@ void hashmap_remove(
     for (int jdx = (idx + 1) % map->cap; 1; jdx = (jdx + 1) % map->cap) {
         struct hashmap_entry *entry = &map->entries[jdx];
 
-        if (!entry->request.ptr) {
+        if (!entry->url) {
             break;
         }
 
-        slice_t reinserted_request = entry->request;
-        uint64_t reinserted_request_hash = entry->request_hash;
+        char *reinserted_url = entry->url;
+        uint64_t reinserted_url_hash = entry->url_hash;
         struct cache_entry *reinserted_cache_entry = entry->entry;
 
-        entry->request.ptr = NULL;
-        entry->request.len = 0;
-        entry->request_hash = 0;
+        entry->url = NULL;
+        entry->url_hash = 0;
 
         hashmap_insert_hash(
-            map,
-            reinserted_request,
-            reinserted_request_hash,
-            reinserted_cache_entry
+            map, reinserted_url, reinserted_url_hash, reinserted_cache_entry
         );
     }
 }

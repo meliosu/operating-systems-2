@@ -11,6 +11,14 @@
 #define STATE_BODY 2
 #define STATE_FINISHED 3
 
+int http_path_get_name(char *path, char **name) {
+    if (sscanf(path, "http://%m[^/]", name) == -1) {
+        return -1;
+    }
+
+    return 0;
+}
+
 void http_headers_init(struct http_headers *headers) {
     headers->first = NULL;
     headers->last = NULL;
@@ -145,16 +153,14 @@ static int http_phrase_parse(
 }
 
 static int http_path_parse(
-    slice_t *path, struct http_cursor *cursor, char *buffer, int len
+    char **path, struct http_cursor *cursor, char *buffer, int len
 ) {
     int end;
 
-    if (sscanf(buffer + cursor->pos, "%*s%n", &end) == -1) {
+    if (sscanf(buffer + cursor->pos, "%ms%n", path, &end) == -1) {
         return -1;
     }
 
-    path->ptr = buffer + cursor->pos;
-    path->len = end;
     cursor->pos += end;
     return 0;
 }
@@ -207,7 +213,7 @@ int http_request_parse_status(
         return -1;
     }
 
-    slice_t path;
+    char *path;
     if (http_path_parse(&path, &c, buffer, len) < 0) {
         return -1;
     }

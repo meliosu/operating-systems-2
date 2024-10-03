@@ -30,8 +30,8 @@ struct http_version {
 };
 
 struct http_request {
+    char *path;
     int method;
-    slice_t path;
     slice_t body;
     struct http_version version;
     struct http_headers headers;
@@ -62,6 +62,8 @@ void http_response_init(struct http_response *response);
 void http_response_destroy(struct http_response *response);
 
 struct http_header *http_header_find(struct http_headers *hdrs, char *key);
+
+int http_path_get_name(char *path, char **name);
 
 int http_request_parse_status(
     struct http_request *request,
