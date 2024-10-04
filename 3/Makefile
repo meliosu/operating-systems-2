@@ -1,13 +1,14 @@
 CC=gcc
 FLAGS=-Wall -g
 
+LIBS=-lllhttp
 OBJECTS=main.o log.o hash.o hashmap.o sieve.o http.o net.o stream.c
 TARGET=proxy
 
 all: main
 
 main: $(OBJECTS)
-	$(CC) -o $(TARGET) $(OBJECTS)
+	$(CC) -o $(TARGET) $(OBJECTS) $(LIBS)
 
 main.o:
 	$(CC) $(FLAGS) -c main.c
