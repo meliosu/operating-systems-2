@@ -34,4 +34,6 @@ void http_response_init(struct http_response *response);
 int http_request_parse(struct http_request *request, char *buf, int len);
 int http_response_parse(struct http_response *response, char *buf, int len);
 
+char *http_host_from_url(char *url);
+
 #endif /* PROXY_HTTP_H */

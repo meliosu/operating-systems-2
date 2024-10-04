@@ -98,3 +98,12 @@ int http_response_parse(struct http_response *response, char *buf, int len) {
 
     return 0;
 }
+
+char *http_host_from_url(char *url) {
+    char *host;
+    if (sscanf(url, "http://%m[^/]%*s", &host) < 1) {
+        return NULL;
+    }
+
+    return host;
+}
