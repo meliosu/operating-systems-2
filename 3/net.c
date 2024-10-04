@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <unistd.h>
 
 #include <netdb.h>
@@ -57,6 +58,12 @@ int net_listen(int port, int backlog) {
     int sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sockfd < 0) {
         return -1;
+    }
+
+    int yes = 1;
+    err = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+    if (err) {
+        printf("setsockopt\n");
     }
 
     struct sockaddr_in addr_in = {
