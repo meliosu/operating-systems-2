@@ -35,6 +35,7 @@ void hashmap_get(struct hashmap *map, char *key, void **value) {
         struct hashmap_entry *entry = &map->entries[idx];
 
         if (!entry->key) {
+            *value = NULL;
             break;
         } else if (!strcmp(entry->key, key)) {
             *value = entry->value;
@@ -51,6 +52,7 @@ void hashmap_remove(struct hashmap *map, char *key, void **value) {
         struct hashmap_entry *entry = &map->entries[idx];
 
         if (!entry->key) {
+            *value = NULL;
             return;
         } else if (!strcmp(entry->key, key)) {
             *value = entry->value;
