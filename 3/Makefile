@@ -1,7 +1,7 @@
 CC=gcc
 FLAGS=-Wall -g
 
-OBJECTS=main.o log.o hash.o hashmap.o sieve.o http.o
+OBJECTS=main.o log.o hash.o hashmap.o sieve.o http.o net.o
 TARGET=proxy
 
 all: main
@@ -26,6 +26,9 @@ sieve.o:
 
 http.o:
 	$(CC) $(FLAGS) -c http.c
+
+net.o:
+	$(CC) $(FLAGS) -c net.c
 
 
 clean:
