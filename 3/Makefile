@@ -1,7 +1,7 @@
 CC=gcc
 FLAGS=-Wall -g
 
-OBJECTS=main.o
+OBJECTS=main.o log.o
 TARGET=proxy
 
 all: main
@@ -11,6 +11,9 @@ main: $(OBJECTS)
 
 main.o:
 	$(CC) $(FLAGS) -c main.c
+
+log.o:
+	$(CC) $(FLAGS) -c log.c
 
 
 clean:
