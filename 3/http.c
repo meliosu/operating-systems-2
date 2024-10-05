@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <llhttp.h>
+
 #include "http.h"
 #include "log.h"
 
@@ -76,6 +78,10 @@ void http_response_init(struct http_response *response) {
 
 int http_request_parse(struct http_request *request, char *buf, int len) {
     llhttp_errno_t err = llhttp_execute(&request->parser, buf, len);
+    if (err == HPE_PAUSED_UPGRADE) {
+        return -2;
+    }
+
     if (err != HPE_OK) {
         return -1;
     }
@@ -90,12 +96,6 @@ int http_request_parse(struct http_request *request, char *buf, int len) {
 int http_response_parse(struct http_response *response, char *buf, int len) {
     llhttp_errno_t err = llhttp_execute(&response->parser, buf, len);
     if (err != HPE_OK) {
-        ERROR(
-            "err parsing response: %s %s %.16s",
-            llhttp_errno_name(err),
-            response->parser.reason,
-            response->parser.error_pos
-        );
         return -1;
     }
 
@@ -107,14 +107,11 @@ int http_response_parse(struct http_response *response, char *buf, int len) {
 }
 
 char *http_host_from_url(char *url) {
+    char *host;
     if (!url) {
-        TRACE("URL is NULL!!!");
         return NULL;
     }
 
-    TRACE("URL: %s", url);
-
-    char *host;
     if (sscanf(url, "http://%m[^/]%*s", &host) < 1) {
         return NULL;
     }
