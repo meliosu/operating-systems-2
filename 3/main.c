@@ -1,3 +1,4 @@
+#include <arpa/inet.h>
 #include <asm-generic/socket.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -71,8 +72,12 @@ int main(int argc, char **argv) {
     struct cache cache;
     sieve_cache_init(&cache, CACHE_SIZE);
 
+    char addrbuf[INET_ADDRSTRLEN];
+    struct sockaddr_in addr;
+    socklen_t addrlen;
+
     while (!should_quit) {
-        int conn = accept(sock, NULL, NULL);
+        int conn = accept(sock, (struct sockaddr *)&addr, &addrlen);
         if (conn < 0) {
             if (errno == EINTR) {
                 continue;
@@ -81,7 +86,14 @@ int main(int argc, char **argv) {
             panic("error accepting connection: %s", strerror(errno));
         }
 
-        INFO("new connection!");
+        const char *addr_str =
+            inet_ntop(AF_INET, &addr.sin_addr, addrbuf, INET_ADDRSTRLEN);
+
+        if (addr_str) {
+            INFO("new connection: %s", addr_str);
+        } else {
+            INFO("new connection");
+        }
 
         struct clientside_ctx *context = malloc(sizeof(struct clientside_ctx));
         context->clientfd = conn;

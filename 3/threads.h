@@ -8,7 +8,7 @@ struct clientside_ctx {
 
 struct serverside_ctx {
     int serverfd;
-    struct cache *cache;
+    struct stream *stream;
 };
 
 void *thread_clientside(void *arg);
