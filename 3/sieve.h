@@ -30,5 +30,8 @@ void sieve_cache_destroy(struct cache *cache);
 
 void sieve_cache_insert(struct cache *cache, char *key, void *value);
 void sieve_cache_lookup(struct cache *cache, char *key, void **value);
+void sieve_cache_lookup_or_insert(
+    struct cache *cache, char *key, void **looked_up, void *inserted
+);
 
 #endif /* PROXY_SIEVE_H */

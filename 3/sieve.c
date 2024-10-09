@@ -109,3 +109,26 @@ void sieve_cache_insert(struct cache *cache, char *key, void *value) {
 
     pthread_rwlock_unlock(&cache->lock);
 }
+
+void sieve_cache_lookup_or_insert(
+    struct cache *cache, char *key, void **looked_up, void *inserted
+) {
+    pthread_rwlock_wrlock(&cache->lock);
+
+    struct cache_entry *cache_entry;
+    hashmap_get(&cache->map, key, (void **)&cache_entry);
+
+    if (cache_entry) {
+        atomic_store(&cache_entry->visited, true);
+        *looked_up = cache_entry->value;
+    } else {
+        if (cache->len == cache->cap) {
+            cache_evict(cache);
+        }
+
+        cache_insert_nonfull(cache, key, inserted);
+        *looked_up = NULL;
+    }
+
+    pthread_rwlock_unlock(&cache->lock);
+}
