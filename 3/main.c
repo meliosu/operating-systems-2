@@ -2,6 +2,7 @@
 #include <asm-generic/socket.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +11,7 @@
 #include <unistd.h>
 
 #include "log.h"
+#include "logic.h"
 #include "net.h"
 #include "sieve.h"
 #include "threads.h"
@@ -64,6 +66,8 @@ int main(int argc, char **argv) {
         panic("failed to register interrupt handler: %s", strerror(errno));
     }
 
+    signal(SIGPIPE, SIG_IGN);
+
     int sock = net_listen(port, BACKLOG);
     if (sock < 0) {
         panic("failed to create listening socket: %s", strerror(errno));
@@ -95,14 +99,20 @@ int main(int argc, char **argv) {
             INFO("new connection");
         }
 
-        struct clientside_ctx *context = malloc(sizeof(struct clientside_ctx));
-        context->clientfd = conn;
-        context->cache = &cache;
+        struct client_ctx *ctx = malloc(sizeof(*ctx));
 
+        ctx->cache = &cache;
+        ctx->client = conn;
+
+        pthread_attr_t attr;
         pthread_t tid;
-        err = pthread_create(&tid, NULL, thread_clientside, context);
+
+        pthread_attr_init(&attr);
+        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+        err = pthread_create(&tid, &attr, client_thread, ctx);
         if (err) {
-            ERROR("pthread_create: %s", strerror(err));
+            ERROR("pthread_create: %s\n", strerror(-err));
         }
     }
 
