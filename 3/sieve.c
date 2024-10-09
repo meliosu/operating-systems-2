@@ -94,7 +94,7 @@ static void cache_insert_nonfull(struct cache *cache, char *key, void *value) {
         cache->head = cache->head->next = cache_entry;
     }
 
-    hashmap_insert(&cache->map, key, value);
+    hashmap_insert(&cache->map, key, cache_entry);
     cache->len += 1;
 }
 
