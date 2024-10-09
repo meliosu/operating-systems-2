@@ -2,13 +2,16 @@
 #define PROXY_STREAM_H
 
 #include <pthread.h>
+#include <stdatomic.h>
+#include <stdbool.h>
 
 struct stream {
     void *data;
     int len;
-    int complete;
-    int refcount;
+    bool complete;
+    bool erred;
 
+    atomic_int refcount;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 };
