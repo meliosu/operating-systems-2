@@ -28,7 +28,6 @@ void queue_add_lock(queue_t *queue) {
 
     while (queue->count == queue->max_count) {
         pthread_cond_wait(&queue->sync->cond, &queue->sync->mutex);
-        pthread_mutex_lock(&queue->sync->mutex);
     }
 }
 
@@ -46,7 +45,6 @@ void queue_get_lock(queue_t *queue) {
 
     while (queue->count == 0) {
         pthread_cond_wait(&queue->sync->cond, &queue->sync->mutex);
-        pthread_mutex_lock(&queue->sync->mutex);
     }
 }
 
