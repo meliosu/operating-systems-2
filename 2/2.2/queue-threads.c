@@ -14,7 +14,7 @@ void report_inconsistency(int expected, int actual) {
 }
 
 float timeval_to_ms(struct timeval *time) {
-    return (float)time->tv_sec * 1e3 + (float)time->tv_usec / 1e6;
+    return (float)time->tv_sec * 1e3 + (float)time->tv_usec / 1e3;
 }
 
 void report_resources(void *thread_name) {
@@ -34,7 +34,7 @@ void report_resources(void *thread_name) {
 
         len = sprintf(
             buf,
-            "%s: user=%.2fms, system=%.2fms, system/total=%.2f%%\n",
+            "%s: user: %.0fms;  system: %.0fms;  system/total: %.2f%%\n",
             (char *)thread_name,
             user_ms,
             system_ms,
@@ -81,6 +81,8 @@ void *writer(void *arg) {
         panic("pthread_setcanceltype: %s", strerror(err));
     }
 
+    int needs_sleep = getenv("SLEEP") != NULL;
+
     pthread_cleanup_push(report_resources, "writer");
 
     queue_t *queue = arg;
@@ -93,6 +95,10 @@ void *writer(void *arg) {
         }
 
         i++;
+
+        if (needs_sleep) {
+            usleep(1);
+        }
     }
 
     pthread_cleanup_pop(1);
