@@ -12,7 +12,7 @@ struct queue_sync {
 
 void queue_sync_init(queue_t *queue) {
     queue->sync = malloc(sizeof(queue_sync_t));
-    pthread_spin_init(&queue->sync->spin, NULL);
+    pthread_spin_init(&queue->sync->spin, 0);
 }
 
 void queue_sync_destroy(queue_t *queue) {

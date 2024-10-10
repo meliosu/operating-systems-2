@@ -99,7 +99,13 @@ void *writer(void *arg) {
     return NULL;
 }
 
-int main() {
+int main(int argc, char **argv) {
+    int wait = 5;
+
+    if (argc == 2) {
+        wait = atoi(argv[1]) ?: 5;
+    }
+
     int err;
 
     int queue_size = 1000;
@@ -116,6 +122,8 @@ int main() {
     if (err) {
         panic("pthread_create: %s", strerror(err));
     }
+
+    sleep(wait);
 
     for (int i = 0; i < 2; i++) {
         void *ret;
