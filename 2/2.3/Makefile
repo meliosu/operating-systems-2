@@ -27,4 +27,4 @@ queue-spin.o:
 
 
 clean:
-	rm $(TARGET_DIR)/*
+	rm -rf $(TARGET_DIR)
