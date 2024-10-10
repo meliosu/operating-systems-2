@@ -145,12 +145,19 @@ void print_counters(int elapsed) {
     );
 }
 
-int main() {
+int main(int argc, char **argv) {
     int err;
     queue_t queue;
+    int queue_size;
     pthread_t tid[6];
 
-    queue_init(&queue, 100);
+    if (argc == 2) {
+        queue_size = atoi(argv[1]) ?: 100;
+    } else {
+        queue_size = 100;
+    }
+
+    queue_init(&queue, queue_size);
 
     void *(*threads[6])(void *) = {
         thread_increasing,
