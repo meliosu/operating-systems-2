@@ -13,97 +13,35 @@ struct queue_sync {
 };
 
 void queue_sync_init(queue_t *queue) {
-    int err;
-
     queue->sync = malloc(sizeof(queue_sync_t));
 
-    err = sem_init(&queue->sync->sem_lock, 0, 1);
-    if (err) {
-        panic("sem_init: %s\n", strerror(errno));
-    }
-
-    err = sem_init(&queue->sync->sem_empty, 0, queue->max_count);
-    if (err) {
-        panic("sem_init: %s\n", strerror(errno));
-    }
-
-    err = sem_init(&queue->sync->sem_full, 0, 0);
-    if (err) {
-        panic("sem_init: %s\n", strerror(errno));
-    }
+    sem_init(&queue->sync->sem_lock, 0, 1);
+    sem_init(&queue->sync->sem_empty, 0, queue->max_count);
+    sem_init(&queue->sync->sem_full, 0, 0);
 }
 
 void queue_sync_destroy(queue_t *queue) {
-    int err;
-
-    err = sem_destroy(&queue->sync->sem_empty);
-    if (err) {
-        printf("sem_destroy: %s\n", strerror(errno));
-    }
-
-    err = sem_destroy(&queue->sync->sem_full);
-    if (err) {
-        printf("sem_destroy: %s\n", strerror(errno));
-    }
-
-    err = sem_destroy(&queue->sync->sem_lock);
-    if (err) {
-        printf("sem_destroy: %s\n", strerror(errno));
-    }
+    sem_destroy(&queue->sync->sem_empty);
+    sem_destroy(&queue->sync->sem_full);
+    sem_destroy(&queue->sync->sem_lock);
 }
 
 void queue_add_lock(queue_t *queue) {
-    int err;
-
-    err = sem_wait(&queue->sync->sem_empty);
-    if (err) {
-        panic("queue_add: sem_wait on sem_empty: %s\n", strerror(err));
-    }
-
-    err = sem_wait(&queue->sync->sem_lock);
-    if (err) {
-        panic("queue_add: sem_wait on sem_lock");
-    }
+    sem_wait(&queue->sync->sem_empty);
+    sem_wait(&queue->sync->sem_lock);
 }
 
 void queue_add_unlock(queue_t *queue) {
-    int err;
-
-    err = sem_post(&queue->sync->sem_lock);
-    if (err) {
-        panic("queue_add: sem_post on sem_lock: %s\n", strerror(err));
-    }
-
-    err = sem_post(&queue->sync->sem_full);
-    if (err) {
-        panic("queue_add: sem_post on sem_full: %s\n", strerror(err));
-    }
+    sem_post(&queue->sync->sem_lock);
+    sem_post(&queue->sync->sem_full);
 }
 
 void queue_get_lock(queue_t *queue) {
-    int err;
-
-    err = sem_wait(&queue->sync->sem_full);
-    if (err) {
-        panic("queue_get: sem_wait on sem_full: %s\n", strerror(err));
-    }
-
-    err = sem_wait(&queue->sync->sem_lock);
-    if (err) {
-        panic("queue_get: sem_wait on sem_lock");
-    }
+    sem_wait(&queue->sync->sem_full);
+    sem_wait(&queue->sync->sem_lock);
 }
 
 void queue_get_unlock(queue_t *queue) {
-    int err;
-
-    err = sem_post(&queue->sync->sem_lock);
-    if (err) {
-        panic("queue_get: sem_post on sem_lock: %s\n", strerror(err));
-    }
-
-    err = sem_post(&queue->sync->sem_empty);
-    if (err) {
-        panic("queue_get: sem_post on sem_empty: %s\n", strerror(err));
-    }
+    sem_post(&queue->sync->sem_lock);
+    sem_post(&queue->sync->sem_empty);
 }

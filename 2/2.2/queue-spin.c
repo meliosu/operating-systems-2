@@ -11,32 +11,19 @@ struct queue_sync {
 
 void queue_sync_init(queue_t *queue) {
     queue->sync = malloc(sizeof(queue_sync_t));
-
-    int err = pthread_spin_init(&queue->sync->spin, NULL);
-    if (err) {
-        panic("pthread_spin_init: %s", strerror(err));
-    }
+    pthread_spin_init(&queue->sync->spin, NULL);
 }
 
 void queue_sync_destroy(queue_t *queue) {
-    int err = pthread_spin_destroy(&queue->sync->spin);
-    if (err) {
-        panic("pthread_spin_init: %s", strerror(err));
-    }
+    pthread_spin_destroy(&queue->sync->spin);
 }
 
 static void queue_lock(queue_t *queue) {
-    int err = pthread_spin_lock(&queue->sync->spin);
-    if (err) {
-        panic("pthread_spin_lock: %s", strerror(err));
-    }
+    pthread_spin_lock(&queue->sync->spin);
 }
 
 static void queue_unlock(queue_t *queue) {
-    int err = pthread_spin_unlock(&queue->sync->spin);
-    if (err) {
-        panic("pthread_spin_unlock: %s", strerror(err));
-    }
+    pthread_spin_unlock(&queue->sync->spin);
 }
 
 void queue_add_lock(queue_t *queue) {

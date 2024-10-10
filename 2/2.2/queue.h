@@ -1,11 +1,7 @@
 #ifndef QUEUE_H
 #define QUEUE_H
 
-#define panic(fmt, args...)                                                    \
-    do {                                                                       \
-        printf(fmt "\n", ##args);                                              \
-        exit(1);                                                               \
-    } while (0)
+#include "panic.h"
 
 typedef struct qnode {
     int value;
