@@ -126,6 +126,13 @@ int main(int argc, char **argv) {
     sleep(wait);
 
     for (int i = 0; i < 2; i++) {
+        err = pthread_cancel(tid[i]);
+        if (err) {
+            panic("pthread_cancel: %s", strerror(err));
+        }
+    }
+
+    for (int i = 0; i < 2; i++) {
         void *ret;
 
         err = pthread_join(tid[i], &ret);
