@@ -1,6 +1,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "http.h"
@@ -21,6 +22,7 @@ void *client_thread(void *arg) {
         ERROR("error handling client");
     }
 
+    free(ctx);
     return NULL;
 }
 
@@ -32,6 +34,7 @@ void *server_thread(void *arg) {
         ERROR("error handling server");
     }
 
+    free(ctx);
     return NULL;
 }
 
@@ -90,11 +93,13 @@ int client_handler(struct cache *cache, int client) {
     rcvd += bytes;
     err = http_request_parse(&request, request_buffer, rcvd);
     if (err == -1) {
+        ERROR("error parsing request");
         return -1;
     }
 
     if (request.method != HTTP_GET ||
         !(request.version.major == 1 && request.version.minor == 0)) {
+        ERROR("wrong version or method");
         return -1;
     }
 
@@ -107,6 +112,7 @@ int client_handler(struct cache *cache, int client) {
         rcvd += bytes;
         err = http_request_parse(&request, request_buffer, rcvd);
         if (err == -1) {
+            ERROR("error parsing request");
             return -1;
         }
     }
@@ -122,11 +128,13 @@ int client_handler(struct cache *cache, int client) {
     } else {
         char *host = http_host_from_url(request.url);
         if (!host) {
+            ERROR("error getting host from url");
             return -1;
         }
 
         int server = net_connect_remote(host, "80");
         if (server < 0) {
+            ERROR("error connecting to remote");
             return -1;
         }
 
@@ -136,6 +144,8 @@ int client_handler(struct cache *cache, int client) {
             if (bytes <= 0) {
                 return -1;
             }
+
+            sent += bytes;
         }
 
         char *response_buffer = malloc(BUFSIZE_RESPONSE);
@@ -150,6 +160,7 @@ int client_handler(struct cache *cache, int client) {
         rcvd += bytes;
         err = http_response_parse(&response, response_buffer, rcvd);
         if (err == -1) {
+            ERROR("error parsing response");
             return -1;
         }
 
@@ -175,6 +186,7 @@ int client_handler(struct cache *cache, int client) {
                 rcvd += bytes;
                 err = http_response_parse(&response, response_buffer, rcvd);
                 if (err == -1) {
+                    ERROR("error parsing response");
                     return -1;
                 }
             }
@@ -211,6 +223,7 @@ int client_handler(struct cache *cache, int client) {
 
                 err = pthread_create(&tid, &attr, server_thread, ctx);
                 if (err) {
+                    ERROR("pthread_create: %s\n", strerror(-err));
                     return -1;
                 }
 
@@ -239,35 +252,34 @@ int server_handler(struct stream *stream, int server) {
         );
 
         if (bytes <= 0) {
+            pthread_mutex_lock(&stream->mutex);
+
             stream->erred = true;
+
+            pthread_mutex_unlock(&stream->mutex);
+            pthread_cond_broadcast(&stream->cond);
             return -1;
         }
 
         err = http_response_parse(&response, stream->data, stream->len + bytes);
+        pthread_mutex_lock(&stream->mutex);
+
         if (err == -1) {
-            pthread_mutex_lock(&stream->mutex);
-
             stream->erred = true;
-
-            pthread_mutex_unlock(&stream->mutex);
-            pthread_cond_broadcast(&stream->cond);
-            return -1;
         } else if (err == 0) {
-            pthread_mutex_lock(&stream->mutex);
-
             stream->len += bytes;
             stream->complete = true;
-
-            pthread_mutex_unlock(&stream->mutex);
-            pthread_cond_broadcast(&stream->cond);
-            break;
         } else {
-            pthread_mutex_lock(&stream->mutex);
-
             stream->len += bytes;
+        }
 
-            pthread_mutex_unlock(&stream->mutex);
-            pthread_cond_broadcast(&stream->cond);
+        pthread_mutex_unlock(&stream->mutex);
+        pthread_cond_broadcast(&stream->cond);
+
+        if (err == -1) {
+            return -1;
+        } else if (err == 0) {
+            break;
         }
     }
 
