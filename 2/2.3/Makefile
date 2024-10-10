@@ -1,27 +1,30 @@
 CC=gcc
 FLAGS=-Wall -g
 LIBS=-lpthread
-
 TARGET_DIR=target
+TARGETS=mutex rwlock spin
 
-all: mutex rwlock spin
+all: $(TARGETS)
 	rm *.o
 
-main:
+$(TARGETS): %: queue-%.o main.o mkdir
+	$(CC) $(FLAGS) -o $(TARGET_DIR)/$@ $< main.o $(LIBS)
+
+mkdir:
+	mkdir -p $(TARGET_DIR)
+
+main.o:
 	$(CC) $(FLAGS) -c main.c
 
-mutex: main
+queue-mutex.o:
 	$(CC) $(FLAGS) -DSYNC_MUTEX -c queue.c -o queue-mutex.o
-	$(CC) $(FLAGS) -o $(TARGET_DIR)/mutex main.o queue-mutex.o $(LIBS)
 
-rwlock: main
+queue-rwlock.o:
 	$(CC) $(FLAGS) -DSYNC_RWLOCK -c queue.c -o queue-rwlock.o
-	$(CC) $(FLAGS) -o $(TARGET_DIR)/rwlock main.o queue-rwlock.o $(LIBS)
 
-spinlock: main
+queue-spin.o:
 	$(CC) $(FLAGS) -DSYNC_SPINLOCK -c queue.c -o queue-spin.o
-	$(CC) $(FLAGS) -o $(TARGET_DIR)/spin main.o queue-spin.o $(LIBS)
 
 
 clean:
-	rm *.o $(TARGET_DIR)/*
+	rm $(TARGET_DIR)/*
