@@ -61,7 +61,7 @@ int queue_add(queue_t *queue, int value) {
         }
 
         queue->count += 1;
-        queue->get_count += 1;
+        queue->add_count += 1;
         ret = 1;
     }
 
