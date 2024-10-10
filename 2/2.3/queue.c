@@ -6,68 +6,26 @@
 
 #include "queue.h"
 
-#if defined SYNC_MUTEX
-    #define SYNC_CHOSEN
-#elif defined SYNC_SPINLOCK
-    #if defined SYNC_CHOSEN
-        #define ERROR_MULTIPLE
-    #endif
-
-    #define SYNC_CHOSEN
-#elif defined SYNC_RWLOCK
-    #if defined SYNC_CHOSEN
-        #define ERROR_MULTIPLE
-    #endif
-
-    #define SYNC_CHOSEN
-#endif
-
-#if defined SYNC_MULTIPLE
-    #error "Can't combine synchronization primitives"
-#elif !defined SYNC_CHOSEN
-    #error "Must define exactly one of the following: \
-SYNC_MUTEX, SYNC_SPINLOCK, SYNC_RWLOCK"
-#endif
-
 void node_unlock(node_t *node) {
-    int err;
-
 #if defined SYNC_MUTEX
-    err = pthread_mutex_unlock(&node->mutex);
-    if (err) {
-        panic("mutex_unlock: %s\n", strerror(err));
-    }
+    pthread_mutex_unlock(&node->mutex);
 
 #elif defined SYNC_SPINLOCK
-    err = pthread_spin_unlock(&node->spinlock);
-    if (err) {
-        panic("spin_unlock: %s\n", strerror(err));
-    }
+    pthread_spin_unlock(&node->spinlock);
 
 #elif defined SYNC_RWLOCK
-    err = pthread_rwlock_unlock(&node->rwlock);
-    if (err) {
-        panic("rwlock_unlock: %s\n", strerror(err));
-    }
+    pthread_rwlock_unlock(&node->rwlock);
 
 #endif
 }
 
 #if defined SYNC_MUTEX || defined SYNC_SPINLOCK
 static void node_lock(node_t *node) {
-    int err;
-
     #if defined SYNC_MUTEX
-    err = pthread_mutex_lock(&node->mutex);
-    if (err) {
-        panic("mutex_lock: %s\n", strerror(err));
-    }
+    pthread_mutex_lock(&node->mutex);
 
     #elif defined SYNC_SPINLOCK
-    err = pthread_spin_lock(&node->spinlock);
-    if (err) {
-        panic("spin_lock: %s\n", strerror(err));
-    }
+    pthread_spin_lock(&node->spinlock);
 
     #endif
 }
@@ -78,10 +36,7 @@ void node_lock_read(node_t *node) {
     node_lock(node);
 
 #elif defined SYNC_RWLOCK
-    int err = pthread_rwlock_rdlock(&node->rwlock);
-    if (err) {
-        panic("rwlock_rdlock: %s\n", strerror(err));
-    }
+    pthread_rwlock_rdlock(&node->rwlock);
 
 #endif
 }
@@ -91,58 +46,33 @@ void node_lock_write(node_t *node) {
     node_lock(node);
 
 #elif defined SYNC_RWLOCK
-    int err = pthread_rwlock_wrlock(&node->rwlock);
-    if (err) {
-        panic("rwlock_wrlock: %s\n", strerror(err));
-    }
+    pthread_rwlock_wrlock(&node->rwlock);
 
 #endif
 }
 
 static void node_init_lock(node_t *node) {
-    int err;
-
 #if defined SYNC_MUTEX
-    err = pthread_mutex_init(&node->mutex, NULL);
-    if (err) {
-        panic("mutex_init: %s\n", strerror(err));
-    }
+    pthread_mutex_init(&node->mutex, NULL);
 
 #elif defined SYNC_SPINLOCK
-    err = pthread_spin_init(&node->spinlock, 0);
-    if (err) {
-        panic("spin_init: %s\n", strerror(err));
-    }
+    pthread_spin_init(&node->spinlock, 0);
 
 #elif defined SYNC_RWLOCK
-    err = pthread_rwlock_init(&node->rwlock, NULL);
-    if (err) {
-        panic("rwlock_init: %s\n", strerror(err));
-    }
+    pthread_rwlock_init(&node->rwlock, NULL);
 
 #endif
 }
 
 static void node_destroy_lock(node_t *node) {
-    int err;
-
 #if defined SYNC_MUTEX
-    err = pthread_mutex_destroy(&node->mutex);
-    if (err) {
-        panic("mutex_destroy: %s\n", strerror(err));
-    }
+    pthread_mutex_destroy(&node->mutex);
 
 #elif defined SYNC_SPINLOCK
-    err = pthread_spin_destroy(&node->spinlock);
-    if (err) {
-        panic("spin_destroy: %s\n", strerror(err));
-    }
+    pthread_spin_destroy(&node->spinlock);
 
 #elif defined SYNC_RWLOCK
-    err = pthread_rwlock_destroy(&node->rwlock);
-    if (err) {
-        panic("rwlock_destroy: %s\n", strerror(err));
-    }
+    pthread_rwlock_destroy(&node->rwlock);
 
 #endif
 }
