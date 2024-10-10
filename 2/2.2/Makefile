@@ -1,5 +1,5 @@
 CC=gcc
-FLAGS=-Wall -g
+FLAGS=-Wall -g -O2
 LIBS=-lpthread
 TARGET_DIR=target
 
@@ -12,9 +12,12 @@ all: $(TARGETS)
 %.o: %.c
 	$(CC) $(FLAGS) -c $<
 
-$(TARGETS): %: queue-%.o $(COMMON)
+$(TARGETS): %: queue-%.o $(COMMON) mkdir
 	$(CC) $(FLAGS) -o $(TARGET_DIR)/$@ $< $(COMMON) $(LIBS)
+
+mkdir:
+	mkdir -p $(TARGET_DIR)
 
 
 clean:
-	rm *.o $(TARGET_DIR)/*
+	rm -rf $(TARGET_DIR)
