@@ -1,10 +1,8 @@
-#include <errno.h>
 #include <semaphore.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "queue.h"
+#include "wrappers.h"
 
 struct queue_sync {
     sem_t sem_empty;

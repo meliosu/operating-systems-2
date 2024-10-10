@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "panic.h"
 #include "queue.h"
+#include "wrappers.h"
 
 struct queue_sync {
     pthread_mutex_t mutex;

@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "queue.h"
+#include "wrappers.h"
 
 struct queue_sync {
     pthread_spinlock_t spin;
