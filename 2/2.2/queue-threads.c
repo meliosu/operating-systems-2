@@ -42,7 +42,7 @@ void report_resources(void *thread_name) {
         );
     }
 
-    write(STDOUT_FILENO, buf, len);
+    (void)(write(STDOUT_FILENO, buf, len) + 1);
 }
 
 void *reader(void *arg) {
