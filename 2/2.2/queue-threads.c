@@ -48,7 +48,7 @@ void report_resources(void *thread_name) {
 void *reader(void *arg) {
     int err = pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     if (err) {
-        panic("pthread_setcanceltype: %s", strerror(-err));
+        panic("pthread_setcanceltype: %s", strerror(err));
     }
 
     pthread_cleanup_push(report_resources, "reader");
@@ -78,7 +78,7 @@ void *reader(void *arg) {
 void *writer(void *arg) {
     int err = pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     if (err) {
-        panic("pthread_setcanceltype: %s", strerror(-err));
+        panic("pthread_setcanceltype: %s", strerror(err));
     }
 
     pthread_cleanup_push(report_resources, "writer");
@@ -109,12 +109,12 @@ int main() {
 
     err = pthread_create(&tid[0], NULL, writer, queue);
     if (err) {
-        panic("pthread_create: %s", strerror(-err));
+        panic("pthread_create: %s", strerror(err));
     }
 
     err = pthread_create(&tid[1], NULL, reader, queue);
     if (err) {
-        panic("pthread_create: %s", strerror(-err));
+        panic("pthread_create: %s", strerror(err));
     }
 
     for (int i = 0; i < 2; i++) {
@@ -122,7 +122,7 @@ int main() {
 
         err = pthread_join(tid[i], &ret);
         if (err) {
-            panic("pthread_join: %s", strerror(-err));
+            panic("pthread_join: %s", strerror(err));
         }
 
         if (ret != PTHREAD_CANCELED) {

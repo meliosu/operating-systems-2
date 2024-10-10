@@ -14,28 +14,28 @@ void queue_sync_init(queue_t *queue) {
 
     int err = pthread_mutex_init(&queue->sync->mutex, NULL);
     if (err) {
-        panic("pthread_mutex_init: %s", strerror(-err));
+        panic("pthread_mutex_init: %s", strerror(err));
     }
 }
 
 void queue_sync_destroy(queue_t *queue) {
     int err = pthread_mutex_destroy(&queue->sync->mutex);
     if (err) {
-        panic("pthread_mutex_destroy: %s", strerror(-err));
+        panic("pthread_mutex_destroy: %s", strerror(err));
     }
 }
 
 static void queue_lock(queue_t *queue) {
     int err = pthread_mutex_lock(&queue->sync->mutex);
     if (err) {
-        panic("pthread_mutex_lock: %s", strerror(-err));
+        panic("pthread_mutex_lock: %s", strerror(err));
     }
 }
 
 static void queue_unlock(queue_t *queue) {
     int err = pthread_mutex_unlock(&queue->sync->mutex);
     if (err) {
-        panic("pthread_mutex_unlock: %s", strerror(-err));
+        panic("pthread_mutex_unlock: %s", strerror(err));
     }
 }
 

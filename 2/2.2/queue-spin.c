@@ -14,28 +14,28 @@ void queue_sync_init(queue_t *queue) {
 
     int err = pthread_spin_init(&queue->sync->spin, NULL);
     if (err) {
-        panic("pthread_spin_init: %s", strerror(-err));
+        panic("pthread_spin_init: %s", strerror(err));
     }
 }
 
 void queue_sync_destroy(queue_t *queue) {
     int err = pthread_spin_destroy(&queue->sync->spin);
     if (err) {
-        panic("pthread_spin_init: %s", strerror(-err));
+        panic("pthread_spin_init: %s", strerror(err));
     }
 }
 
 static void queue_lock(queue_t *queue) {
     int err = pthread_spin_lock(&queue->sync->spin);
     if (err) {
-        panic("pthread_spin_lock: %s", strerror(-err));
+        panic("pthread_spin_lock: %s", strerror(err));
     }
 }
 
 static void queue_unlock(queue_t *queue) {
     int err = pthread_spin_unlock(&queue->sync->spin);
     if (err) {
-        panic("pthread_spin_unlock: %s", strerror(-err));
+        panic("pthread_spin_unlock: %s", strerror(err));
     }
 }
 
