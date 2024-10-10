@@ -53,23 +53,25 @@ void node_unlock(node_t *node) {
 #endif
 }
 
+#if defined SYNC_MUTEX || defined SYNC_SPINLOCK
 static void node_lock(node_t *node) {
     int err;
 
-#if defined SYNC_MUTEX
+    #if defined SYNC_MUTEX
     err = pthread_mutex_lock(&node->mutex);
     if (err) {
         panic("mutex_lock: %s\n", strerror(err));
     }
 
-#elif defined SYNC_SPINLOCK
+    #elif defined SYNC_SPINLOCK
     err = pthread_spin_lock(&node->spinlock);
     if (err) {
         panic("spin_lock: %s\n", strerror(err));
     }
 
-#endif
+    #endif
 }
+#endif
 
 void node_lock_read(node_t *node) {
 #if defined SYNC_MUTEX || defined SYNC_SPINLOCK
@@ -157,10 +159,6 @@ static void node_fill_data(node_t *node) {
 node_t *node_random() {
     node_t *node = malloc(sizeof(node_t));
 
-    if (!node) {
-        panic("OOM");
-    }
-
     node_fill_data(node);
     node_init_lock(node);
 
@@ -179,8 +177,6 @@ void queue_init(queue_t *queue, int size) {
 
 void queue_destroy(queue_t *queue) {
     node_t *curr = queue->head;
-
-    int err;
 
     while (curr) {
         node_t *next = curr->next;

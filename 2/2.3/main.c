@@ -27,7 +27,7 @@ int equal(char *a, char *b) {
 }
 
 void traverse_compare(
-    queue_t *queue, int *counter, int (*ordered)(char *, char *)
+    queue_t *queue, int *counter, int (*order)(char *, char *)
 ) {
     node_t *current = queue->head;
 
@@ -36,7 +36,7 @@ void traverse_compare(
 
     while (next) {
         node_lock_read(next);
-        ordered(current->value, next->value);
+        order(current->value, next->value);
 
         node_t *actually_next = next->next;
 
@@ -49,34 +49,22 @@ void traverse_compare(
     *counter += 1;
 }
 
-void *thread_increasing(void *arg) {
-    queue_t *queue = arg;
-
+void *thread_increasing(void *queue) {
     while (1) {
         traverse_compare(queue, &counter_increasing, increasing);
     }
-
-    return NULL;
 }
 
-void *thread_decreasing(void *arg) {
-    queue_t *queue = arg;
-
+void *thread_decreasing(void *queue) {
     while (1) {
         traverse_compare(queue, &counter_decreasing, decreasing);
     }
-
-    return NULL;
 }
 
-void *thread_equal(void *arg) {
-    queue_t *queue = arg;
-
+void *thread_equal(void *queue) {
     while (1) {
         traverse_compare(queue, &counter_equal, equal);
     }
-
-    return NULL;
 }
 
 void swap_nodes(node_t *prev, node_t **a, node_t **b) {
@@ -89,7 +77,7 @@ void swap_nodes(node_t *prev, node_t **a, node_t **b) {
     *b = tmp;
 }
 
-void traverse_permute(queue_t *queue, int *counter) {
+void traverse_permute(queue_t *queue) {
     node_t *first = queue->head;
 
     node_lock_write(first);
@@ -117,17 +105,13 @@ void traverse_permute(queue_t *queue, int *counter) {
     node_unlock(first);
     node_unlock(second);
 
-    __sync_fetch_and_add(counter, 1);
+    __sync_fetch_and_add(&counter_swapped, 1);
 }
 
-void *thread_permutating(void *arg) {
-    queue_t *queue = arg;
-
+void *thread_permutating(void *queue) {
     while (1) {
-        traverse_permute(queue, &counter_swapped);
+        traverse_permute(queue);
     }
-
-    return NULL;
 }
 
 void print_counters(int elapsed) {
