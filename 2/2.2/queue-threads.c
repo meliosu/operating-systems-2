@@ -9,6 +9,8 @@
 
 #include "queue.h"
 
+int should_quit = 0;
+
 void report_inconsistency(int expected, int actual) {
     printf("ERROR: expected %d, got %d\n", expected, actual);
 }
@@ -46,17 +48,12 @@ void report_resources(void *thread_name) {
 }
 
 void *reader(void *arg) {
-    int err = pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
-    if (err) {
-        panic("pthread_setcanceltype: %s", strerror(err));
-    }
-
     pthread_cleanup_push(report_resources, "reader");
 
     queue_t *queue = arg;
     int expected = 0;
 
-    while (1) {
+    while (!should_quit) {
         int value = -1;
 
         int ok = queue_get(queue, &value);
@@ -76,11 +73,6 @@ void *reader(void *arg) {
 }
 
 void *writer(void *arg) {
-    int err = pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
-    if (err) {
-        panic("pthread_setcanceltype: %s", strerror(err));
-    }
-
     int needs_sleep = getenv("SLEEP") != NULL;
 
     pthread_cleanup_push(report_resources, "writer");
@@ -88,7 +80,7 @@ void *writer(void *arg) {
     queue_t *queue = arg;
     int i = 0;
 
-    while (1) {
+    while (!should_quit) {
         int ok = queue_add(queue, i);
         if (!ok) {
             continue;
@@ -131,12 +123,7 @@ int main(int argc, char **argv) {
 
     sleep(wait);
 
-    for (int i = 0; i < 2; i++) {
-        err = pthread_cancel(tid[i]);
-        if (err) {
-            panic("pthread_cancel: %s", strerror(err));
-        }
-    }
+    should_quit = 1;
 
     for (int i = 0; i < 2; i++) {
         void *ret;
@@ -144,10 +131,6 @@ int main(int argc, char **argv) {
         err = pthread_join(tid[i], &ret);
         if (err) {
             panic("pthread_join: %s", strerror(err));
-        }
-
-        if (ret != PTHREAD_CANCELED) {
-            panic("thread not canceled");
         }
     }
 
