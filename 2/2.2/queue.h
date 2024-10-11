@@ -1,72 +1,48 @@
-#ifndef __FITOS_QUEUE_H__
-#define __FITOS_QUEUE_H__
+#ifndef QUEUE_H
+#define QUEUE_H
 
-#ifndef _GNU_SOURCE
-    #define _GNU_SOURCE
-#endif /* ifndef _GNU_SOURCE */
+#include "panic.h"
 
-#include <errno.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#ifdef SYNC_SEM
-    #include <semaphore.h>
-#endif
-
-#define panic(fmt, args...)                                                    \
-    do {                                                                       \
-        printf(fmt, ##args);                                                   \
-        abort();                                                               \
-    } while (0);
-
-typedef struct _QueueNode {
-    int val;
-    struct _QueueNode *next;
+typedef struct qnode {
+    int value;
+    struct qnode *next;
 } qnode_t;
 
-typedef struct _Queue {
+typedef struct queue_sync queue_sync_t;
+
+typedef struct queue {
     qnode_t *first;
     qnode_t *last;
-
-    pthread_t qmonitor_tid;
 
     int count;
     int max_count;
 
     long add_attempts;
-    long get_attempts;
     long add_count;
+    long get_attempts;
     long get_count;
 
-#if defined SYNC_SPINLOCK
-    pthread_spinlock_t spinlock;
-
-#elif defined SYNC_MUTEX
-    pthread_mutex_t mutex;
-
-#elif defined SYNC_COND
-    pthread_cond_t cond;
-    pthread_mutex_it mutex;
-
-#elif defined SYNC_SEM
-    sem_t sem_empty;
-    sem_t sem_full;
-    sem_t sem_lock;
-
-#endif
-
+    queue_sync_t *sync;
 } queue_t;
 
-queue_t *queue_init(int max_count);
-void queue_destroy(queue_t *q);
+void queue_sync_init(queue_t *queue);
+void queue_sync_destroy(queue_t *queue);
 
-int queue_add(queue_t *q, int val);
-int queue_get(queue_t *q, int *val);
+void queue_add_lock(queue_t *queue);
+void queue_add_unlock(queue_t *queue);
 
-void queue_print_stats(queue_t *q);
+void queue_get_lock(queue_t *queue);
+void queue_get_unlock(queue_t *queue);
 
-#endif /* __FITOS_QUEUE_H__ */
+qnode_t *qnode_create(int value);
+void qnode_destroy(qnode_t *qnode);
+
+queue_t *queue_create(int max_count);
+void queue_destroy(queue_t *queue);
+
+int queue_add(queue_t *queue, int value);
+int queue_get(queue_t *queue, int *value);
+
+void queue_print_stats(queue_t *queue);
+
+#endif /* QUEUE_H */
