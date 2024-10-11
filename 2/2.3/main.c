@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "queue.h"
@@ -13,6 +14,8 @@ int counter_increasing;
 int counter_decreasing;
 int counter_equal;
 int counter_swapped;
+
+thread_local unsigned int state;
 
 int increasing(char *a, char *b) {
     return strlen(a) < strlen(b);
@@ -89,7 +92,7 @@ void traverse_permute(queue_t *queue) {
     while (third) {
         node_lock_write(third);
 
-        if (rand() < RAND_MAX / SWAP_INV_FREQUENCY) {
+        if (rand_r(&state) < RAND_MAX / SWAP_INV_FREQUENCY) {
             swap_nodes(first, &second, &third);
         }
 
@@ -109,6 +112,8 @@ void traverse_permute(queue_t *queue) {
 }
 
 void *thread_permutating(void *queue) {
+    state = gettid() * time(NULL);
+
     while (1) {
         traverse_permute(queue);
     }
