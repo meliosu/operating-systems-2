@@ -26,7 +26,7 @@ u64 hash(void *key, int len) {
         h *= m;
     }
 
-    u8 *left = (u8 *)data;
+    const u8 *left = (u8 *)data;
 
     switch (len % 8) {
     case 7:
