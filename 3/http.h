@@ -3,7 +3,7 @@
 
 #include <llhttp.h>
 
-struct http_request {
+typedef struct http_request {
     struct {
         int major;
         int minor;
@@ -14,9 +14,9 @@ struct http_request {
     int finished;
     llhttp_t parser;
     llhttp_settings_t settings;
-};
+} http_request_t;
 
-struct http_response {
+typedef struct http_response {
     struct {
         int major;
         int minor;
@@ -26,13 +26,13 @@ struct http_response {
     int finished;
     llhttp_t parser;
     llhttp_settings_t settings;
-};
+} http_response_t;
 
-void http_request_init(struct http_request *request);
-void http_response_init(struct http_response *response);
+void http_request_init(http_request_t *request);
+void http_response_init(http_response_t *response);
 
-int http_request_parse(struct http_request *request, char *buf, int len);
-int http_response_parse(struct http_response *response, char *buf, int len);
+int http_request_parse(http_request_t *request, char *buf, int len);
+int http_response_parse(http_response_t *response, char *buf, int len);
 
 char *http_host_from_url(char *url);
 

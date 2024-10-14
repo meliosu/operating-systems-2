@@ -5,7 +5,7 @@
 #include <stdatomic.h>
 #include <stdbool.h>
 
-struct stream {
+typedef struct stream {
     void *data;
     int len;
     bool complete;
@@ -14,9 +14,9 @@ struct stream {
     atomic_int refcount;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
-};
+} stream_t;
 
-void stream_init(struct stream *stream);
-void stream_destroy(struct stream *stream);
+void stream_init(stream_t *stream);
+void stream_destroy(stream_t *stream);
 
 #endif /* PROXY_STREAM_H */

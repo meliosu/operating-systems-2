@@ -6,7 +6,7 @@
 #include "hashmap.h"
 #include "sieve.h"
 
-void sieve_cache_init(struct cache *cache, int cap) {
+void sieve_cache_init(cache_t *cache, int cap) {
     hashmap_init(&cache->map, cap * 2);
     pthread_rwlock_init(&cache->lock, NULL);
 
@@ -17,17 +17,17 @@ void sieve_cache_init(struct cache *cache, int cap) {
     cache->hand = NULL;
 }
 
-void sieve_cache_destroy(struct cache *cache) {
+void sieve_cache_destroy(cache_t *cache) {
     hashmap_destroy(&cache->map);
     pthread_rwlock_destroy(&cache->lock);
 
     // TODO: clean cache entries
 }
 
-void sieve_cache_lookup(struct cache *cache, char *key, void **value) {
+void sieve_cache_lookup(cache_t *cache, char *key, void **value) {
     pthread_rwlock_rdlock(&cache->lock);
 
-    struct cache_entry *cache_entry;
+    cache_entry_t *cache_entry;
     hashmap_get(&cache->map, key, (void **)&cache_entry);
 
     if (cache_entry) {
@@ -40,8 +40,8 @@ void sieve_cache_lookup(struct cache *cache, char *key, void **value) {
     pthread_rwlock_unlock(&cache->lock);
 }
 
-static void cache_evict(struct cache *cache) {
-    struct cache_entry *curr = cache->hand;
+static void cache_evict(cache_t *cache) {
+    cache_entry_t *curr = cache->hand;
 
     while (1) {
         if (!curr->visited) {
@@ -73,14 +73,14 @@ static void cache_evict(struct cache *cache) {
 
     // TODO: cleanup data in cache entry
 
-    struct cache_entry *removed;
+    cache_entry_t *removed;
     hashmap_remove(&cache->map, curr->key, (void **)&removed);
     free(curr);
     cache->len -= 1;
 }
 
-static void cache_insert_nonfull(struct cache *cache, char *key, void *value) {
-    struct cache_entry *cache_entry = malloc(sizeof(*cache_entry));
+static void cache_insert_nonfull(cache_t *cache, char *key, void *value) {
+    cache_entry_t *cache_entry = malloc(sizeof(cache_entry_t));
 
     cache_entry->key = key;
     cache_entry->value = value;
@@ -98,7 +98,7 @@ static void cache_insert_nonfull(struct cache *cache, char *key, void *value) {
     cache->len += 1;
 }
 
-void sieve_cache_insert(struct cache *cache, char *key, void *value) {
+void sieve_cache_insert(cache_t *cache, char *key, void *value) {
     pthread_rwlock_wrlock(&cache->lock);
 
     if (cache->len == cache->cap) {
@@ -111,11 +111,11 @@ void sieve_cache_insert(struct cache *cache, char *key, void *value) {
 }
 
 void sieve_cache_lookup_or_insert(
-    struct cache *cache, char *key, void **looked_up, void *inserted
+    cache_t *cache, char *key, void **looked_up, void *inserted
 ) {
     pthread_rwlock_wrlock(&cache->lock);
 
-    struct cache_entry *cache_entry;
+    cache_entry_t *cache_entry;
     hashmap_get(&cache->map, key, (void **)&cache_entry);
 
     if (cache_entry) {

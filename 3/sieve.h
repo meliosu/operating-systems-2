@@ -6,32 +6,32 @@
 
 #include "hashmap.h"
 
-struct cache_entry {
+typedef struct cache_entry {
     char *key;
     void *value;
 
     atomic_bool visited;
     struct cache_entry *prev;
     struct cache_entry *next;
-};
+} cache_entry_t;
 
-struct cache {
+typedef struct cache {
     int len;
     int cap;
-    struct hashmap map;
-    struct cache_entry *head;
-    struct cache_entry *tail;
-    struct cache_entry *hand;
+    hashmap_t map;
+    cache_entry_t *head;
+    cache_entry_t *tail;
+    cache_entry_t *hand;
     pthread_rwlock_t lock;
-};
+} cache_t;
 
-void sieve_cache_init(struct cache *cache, int cap);
-void sieve_cache_destroy(struct cache *cache);
+void sieve_cache_init(cache_t *cache, int cap);
+void sieve_cache_destroy(cache_t *cache);
 
-void sieve_cache_insert(struct cache *cache, char *key, void *value);
-void sieve_cache_lookup(struct cache *cache, char *key, void **value);
+void sieve_cache_insert(cache_t *cache, char *key, void *value);
+void sieve_cache_lookup(cache_t *cache, char *key, void **value);
 void sieve_cache_lookup_or_insert(
-    struct cache *cache, char *key, void **looked_up, void *inserted
+    cache_t *cache, char *key, void **looked_up, void *inserted
 );
 
 #endif /* PROXY_SIEVE_H */

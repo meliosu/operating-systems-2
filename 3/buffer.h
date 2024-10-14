@@ -3,16 +3,16 @@
 
 #include <stdatomic.h>
 
-struct buffer {
+typedef struct buffer {
     atomic_int refcount;
     int cap;
     int len;
     char buf[];
-};
+} buffer_t;
 
-struct buffer *buffer_clone(struct buffer *in);
+buffer_t *buffer_clone(buffer_t *in);
 
-struct buffer *buffer_create(int cap);
-void buffer_destroy(struct buffer *buffer);
+buffer_t *buffer_create(int cap);
+void buffer_destroy(buffer_t *buffer);
 
 #endif /* PROXY_BUFFER_H */

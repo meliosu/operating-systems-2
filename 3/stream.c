@@ -3,7 +3,7 @@
 
 #include "stream.h"
 
-void stream_init(struct stream *stream) {
+void stream_init(stream_t *stream) {
     stream->refcount = 1;
     stream->complete = false;
     stream->erred = false;
@@ -12,7 +12,7 @@ void stream_init(struct stream *stream) {
     pthread_cond_init(&stream->cond, NULL);
 }
 
-void stream_destroy(struct stream *stream) {
+void stream_destroy(stream_t *stream) {
     pthread_mutex_destroy(&stream->mutex);
     pthread_cond_destroy(&stream->cond);
 }
