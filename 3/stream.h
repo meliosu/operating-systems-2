@@ -20,7 +20,7 @@ typedef struct stream {
 
 stream_t *stream_clone(stream_t *in);
 
-void stream_init(stream_t *stream);
+stream_t *stream_create(int cap);
 void stream_destroy(stream_t *stream);
 
 #endif /* PROXY_STREAM_H */

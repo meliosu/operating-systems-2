@@ -11,10 +11,8 @@
 #include <unistd.h>
 
 #include "log.h"
-#include "logic.h"
 #include "net.h"
 #include "sieve.h"
-#include "threads.h"
 
 #define CACHE_SIZE 1024
 #define BACKLOG 10
@@ -68,20 +66,27 @@ int main(int argc, char **argv) {
 
     signal(SIGPIPE, SIG_IGN);
 
-    int sock = net_listen(port, BACKLOG);
-    if (sock < 0) {
+    int server = net_listen(port, BACKLOG);
+    if (server < 0) {
         panic("failed to create listening socket: %s", strerror(errno));
     }
 
-    struct cache cache;
+    cache_t cache;
     sieve_cache_init(&cache, CACHE_SIZE);
 
     char addrbuf[INET_ADDRSTRLEN];
+
     struct sockaddr_in addr;
     socklen_t addrlen;
 
+    pthread_attr_t attr;
+    pthread_t tid;
+
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
     while (!should_quit) {
-        int conn = accept(sock, (struct sockaddr *)&addr, &addrlen);
+        int conn = accept(server, (struct sockaddr *)&addr, &addrlen);
         if (conn < 0) {
             if (errno == EINTR) {
                 continue;
@@ -94,30 +99,17 @@ int main(int argc, char **argv) {
             inet_ntop(AF_INET, &addr.sin_addr, addrbuf, INET_ADDRSTRLEN);
 
         if (addr_str) {
-            INFO("new connection: %s", addr_str);
+            INFO("connection: %s", addr_str);
         } else {
-            INFO("new connection");
+            INFO("connection");
         }
 
-        struct client_ctx *ctx = malloc(sizeof(*ctx));
-
-        ctx->cache = &cache;
-        ctx->client = conn;
-
-        pthread_attr_t attr;
-        pthread_t tid;
-
-        pthread_attr_init(&attr);
-        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-
-        err = pthread_create(&tid, &attr, client_thread, ctx);
-        if (err) {
-            ERROR("pthread_create: %s\n", strerror(-err));
-        }
+        pthread_create(&tid, &attr, NULL, NULL);
     }
 
     INFO("exiting...");
 
-    close(sock);
+    pthread_attr_destroy(&attr);
+    close(server);
     sieve_cache_destroy(&cache);
 }

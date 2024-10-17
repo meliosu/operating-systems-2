@@ -2,7 +2,7 @@ CC=gcc
 FLAGS=-Wall -g
 
 LIBS=-lllhttp -lpthread
-OBJECTS=main.o log.o hash.o hashmap.o sieve.o http.o net.o stream.c logic.o buffer.o
+OBJECTS=main.o log.o hash.o hashmap.o sieve.o http.o net.o stream.c logic.o buffer.o proxy.o
 TARGET=proxy
 
 all: main
