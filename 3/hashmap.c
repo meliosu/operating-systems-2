@@ -52,10 +52,15 @@ void hashmap_remove(hashmap_t *map, char *key, void **value) {
         hashmap_entry_t *entry = &map->entries[idx];
 
         if (!entry->key) {
-            *value = NULL;
+            if (value) {
+                *value = NULL;
+            }
+
             return;
         } else if (!strcmp(entry->key, key)) {
-            *value = entry->value;
+            if (value) {
+                *value = entry->value;
+            }
 
             entry->key = NULL;
             entry->value = NULL;

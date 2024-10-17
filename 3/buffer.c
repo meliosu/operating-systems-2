@@ -12,7 +12,6 @@ buffer_t *buffer_create(int cap) {
     buffer_t *buffer = malloc(sizeof(buffer_t) + cap);
     buffer->refcount = 1;
     buffer->cap = cap;
-    buffer->len = 0;
     return buffer;
 }
 

@@ -6,7 +6,6 @@
 typedef struct buffer {
     atomic_int refcount;
     int cap;
-    int len;
     char buf[];
 } buffer_t;
 

@@ -5,6 +5,7 @@
 
 #include "hashmap.h"
 #include "sieve.h"
+#include "stream.h"
 
 void sieve_cache_init(cache_t *cache, int cap) {
     hashmap_init(&cache->map, cap * 2);
@@ -21,10 +22,16 @@ void sieve_cache_destroy(cache_t *cache) {
     hashmap_destroy(&cache->map);
     pthread_rwlock_destroy(&cache->lock);
 
-    // TODO: clean cache entries
+    cache_entry_t *entry = cache->tail;
+    while (entry) {
+        cache_entry_t *next = entry->next;
+        stream_destroy(entry->value);
+        free(entry);
+        entry = next;
+    }
 }
 
-void sieve_cache_lookup(cache_t *cache, char *key, void **value) {
+void sieve_cache_lookup(cache_t *cache, char *key, stream_t **value) {
     pthread_rwlock_rdlock(&cache->lock);
 
     cache_entry_t *cache_entry;
@@ -32,7 +39,7 @@ void sieve_cache_lookup(cache_t *cache, char *key, void **value) {
 
     if (cache_entry) {
         atomic_store(&cache_entry->visited, true);
-        *value = cache_entry->value;
+        *value = stream_clone(cache_entry->value);
     } else {
         *value = NULL;
     }
@@ -71,15 +78,14 @@ static void cache_evict(cache_t *cache) {
         }
     }
 
-    // TODO: cleanup data in cache entry
-
-    cache_entry_t *removed;
-    hashmap_remove(&cache->map, curr->key, (void **)&removed);
+    hashmap_remove(&cache->map, curr->key, NULL);
+    stream_destroy(curr->value);
     free(curr);
+
     cache->len -= 1;
 }
 
-static void cache_insert_nonfull(cache_t *cache, char *key, void *value) {
+static void cache_insert_nonfull(cache_t *cache, char *key, stream_t *value) {
     cache_entry_t *cache_entry = malloc(sizeof(cache_entry_t));
 
     cache_entry->key = key;
@@ -98,7 +104,7 @@ static void cache_insert_nonfull(cache_t *cache, char *key, void *value) {
     cache->len += 1;
 }
 
-void sieve_cache_insert(cache_t *cache, char *key, void *value) {
+void sieve_cache_insert(cache_t *cache, char *key, stream_t *value) {
     pthread_rwlock_wrlock(&cache->lock);
 
     if (cache->len == cache->cap) {
@@ -111,7 +117,7 @@ void sieve_cache_insert(cache_t *cache, char *key, void *value) {
 }
 
 void sieve_cache_lookup_or_insert(
-    cache_t *cache, char *key, void **looked_up, void *inserted
+    cache_t *cache, char *key, stream_t **looked_up, stream_t *inserted
 ) {
     pthread_rwlock_wrlock(&cache->lock);
 
@@ -120,7 +126,7 @@ void sieve_cache_lookup_or_insert(
 
     if (cache_entry) {
         atomic_store(&cache_entry->visited, true);
-        *looked_up = cache_entry->value;
+        *looked_up = stream_clone(cache_entry->value);
     } else {
         if (cache->len == cache->cap) {
             cache_evict(cache);

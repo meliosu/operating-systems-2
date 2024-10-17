@@ -5,8 +5,10 @@
 #include <stdatomic.h>
 #include <stdbool.h>
 
+#include "buffer.h"
+
 typedef struct stream {
-    void *data;
+    buffer_t *buffer;
     int len;
     bool complete;
     bool erred;
@@ -15,6 +17,8 @@ typedef struct stream {
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 } stream_t;
+
+stream_t *stream_clone(stream_t *in);
 
 void stream_init(stream_t *stream);
 void stream_destroy(stream_t *stream);

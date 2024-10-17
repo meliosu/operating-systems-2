@@ -5,10 +5,11 @@
 #include <stdatomic.h>
 
 #include "hashmap.h"
+#include "stream.h"
 
 typedef struct cache_entry {
     char *key;
-    void *value;
+    stream_t *value;
 
     atomic_bool visited;
     struct cache_entry *prev;
@@ -28,10 +29,10 @@ typedef struct cache {
 void sieve_cache_init(cache_t *cache, int cap);
 void sieve_cache_destroy(cache_t *cache);
 
-void sieve_cache_insert(cache_t *cache, char *key, void *value);
-void sieve_cache_lookup(cache_t *cache, char *key, void **value);
+void sieve_cache_insert(cache_t *cache, char *key, stream_t *value);
+void sieve_cache_lookup(cache_t *cache, char *key, stream_t **value);
 void sieve_cache_lookup_or_insert(
-    cache_t *cache, char *key, void **looked_up, void *inserted
+    cache_t *cache, char *key, stream_t **looked_up, stream_t *inserted
 );
 
 #endif /* PROXY_SIEVE_H */
