@@ -11,6 +11,9 @@ stream_t *stream_create(int cap) {
     stream->refcount = 1;
     stream->complete = false;
     stream->erred = false;
+    stream->len = 0;
+    pthread_mutex_init(&stream->mutex, NULL);
+    pthread_cond_init(&stream->cond, NULL);
     return stream;
 }
 
