@@ -132,7 +132,7 @@ void sieve_cache_lookup_or_insert(
             cache_evict(cache);
         }
 
-        cache_insert_nonfull(cache, key, inserted);
+        cache_insert_nonfull(cache, key, stream_clone(inserted));
         *looked_up = NULL;
     }
 
