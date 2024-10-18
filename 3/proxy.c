@@ -19,6 +19,48 @@ static int is_allowed_request(http_request_t *request) {
            (request->version.major == 1 && request->version.minor == 0);
 }
 
+static int send_from_cache(int client, stream_t *stream) {
+    int sent = 0;
+
+    while (1) {
+        pthread_mutex_lock(&stream->mutex);
+
+        while (sent == stream->len && !stream->complete && !stream->erred) {
+            pthread_cond_wait(&stream->cond, &stream->mutex);
+        }
+
+        if (stream->erred) {
+            pthread_mutex_unlock(&stream->mutex);
+            return -1;
+        }
+
+        if (stream->complete) {
+            pthread_mutex_unlock(&stream->mutex);
+            break;
+        }
+
+        int len = stream->len;
+        buffer_t *buffer = buffer_clone(stream->buffer);
+
+        pthread_mutex_unlock(&stream->mutex);
+
+        while (sent < len) {
+            int n = write(client, buffer->buf + sent, len - sent);
+
+            if (n <= 0) {
+                buffer_destroy(buffer);
+                return -1;
+            }
+
+            sent += n;
+        }
+
+        buffer_destroy(buffer);
+    }
+
+    return 0;
+}
+
 int client_handler(int client, cache_t *cache) {
     int err;
 
@@ -38,48 +80,82 @@ int client_handler(int client, cache_t *cache) {
 
         int n = read(client, request_buffer + rcvd, request_bufsize - rcvd);
         if (n <= 0) {
-            // ERROR
+            free(request_buffer);
+            close(client);
+            return -1;
         }
 
         rcvd += n;
 
         int err = http_request_parse(&request, request_buffer, rcvd);
         if (err == -1) {
-            // ERROR
+            free(request_buffer);
+            close(client);
+            return -1;
         }
     }
 
     if (!is_allowed_request(&request)) {
-        // ERROR (kinda)
+        free(request_buffer);
+        close(client);
+        return -1;
     }
 
     stream_t *cached;
     sieve_cache_lookup(cache, request.url, &cached);
 
     if (cached) {
-        // send from cache
+        free(request_buffer);
+        err = send_from_cache(client, cached);
+        close(client);
+        stream_destroy(cached);
+        return err;
     }
 
     char *host = http_host_from_url(request.url);
     if (!host) {
-        // ERROR
+        free(request_buffer);
+        close(client);
+        return -1;
     }
 
     int remote = net_connect_remote(host, "80");
     if (remote < 0) {
-        // ERROR
+        free(request_buffer);
+        close(client);
+        return -1;
     }
 
     free(host);
+
+    int sent = 0;
+
+    while (sent < rcvd) {
+        int n = write(remote, request_buffer + sent, rcvd - sent);
+
+        if (n <= 0) {
+            free(request_buffer);
+            close(client);
+            close(remote);
+            return -1;
+        }
+
+        sent += n;
+    }
+
+    free(request_buffer);
 
     stream_t *looked_up;
     stream_t *inserted = stream_create(RESPONSE_BUFSIZE);
     sieve_cache_lookup_or_insert(cache, request.url, &looked_up, inserted);
 
     if (looked_up) {
+        close(remote);
         stream_destroy(inserted);
-
-        // send from cache
+        err = send_from_cache(client, looked_up);
+        close(client);
+        stream_destroy(looked_up);
+        return err;
     } else {
         pthread_attr_t attr;
         pthread_t tid;
@@ -95,10 +171,11 @@ int client_handler(int client, cache_t *cache) {
         pthread_create(&tid, &attr, server_thread, ctx);
         pthread_attr_destroy(&attr);
 
-        // send from cache
+        err = send_from_cache(client, inserted);
+        close(client);
+        stream_destroy(inserted);
+        return err;
     }
-
-    return 0;
 }
 
 int server_handler(int remote, stream_t *stream) {
@@ -113,6 +190,7 @@ int server_handler(int remote, stream_t *stream) {
             buffer_t *new = buffer_create(old->cap * 2);
             memcpy(&new->buf, &old->buf, stream->len);
             atomic_store((atomic_long *)&stream->buffer, (long)new);
+            buffer_destroy(old);
         }
 
         int n = read(
@@ -121,26 +199,46 @@ int server_handler(int remote, stream_t *stream) {
             stream->buffer->cap - stream->len
         );
 
-        if (n <= 0) {
-            // ERROR
-        }
-
-        err = http_response_parse(
-            &response, stream->buffer->buf, stream->len + n
-        );
-
-        if (err == -1) {
-            // ERROR
+        if (n > 0) {
+            err = http_response_parse(
+                &response, stream->buffer->buf, stream->len + n
+            );
         }
 
         pthread_mutex_lock(&stream->mutex);
 
+        int ret = 0;
+
+        if (n <= 0) {
+            stream->erred = true;
+            ret = -1;
+        } else if (err == -1) {
+            stream->erred = true;
+            ret = -1;
+        }
+
         stream->len += n;
 
-        pthread_cond_signal(&stream->cond);
+        if (response.finished) {
+            stream->complete = true;
+        }
+
+        pthread_cond_broadcast(&stream->cond);
         pthread_mutex_unlock(&stream->mutex);
+
+        if (ret) {
+            close(remote);
+            stream_destroy(stream);
+            return ret;
+        }
+
+        if (atomic_load(&stream->refcount) == 1) {
+            break;
+        }
     }
 
+    close(remote);
+    stream_destroy(stream);
     return 0;
 }
 

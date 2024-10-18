@@ -2,7 +2,7 @@ CC=gcc
 FLAGS=-Wall -g
 
 LIBS=-lllhttp -lpthread
-OBJECTS=main.o log.o hash.o hashmap.o sieve.o http.o net.o stream.c logic.o buffer.o proxy.o
+OBJECTS=main.o log.o hash.o hashmap.o sieve.o http.o net.o stream.c buffer.o proxy.o
 TARGET=proxy
 
 all: main
@@ -34,14 +34,11 @@ net.o:
 stream.o:
 	$(CC) $(FLAGS) -c stream.c
 
-threads.o:
-	$(CC) $(FLAGS) -c threads.c
-
-logic.o:
-	$(CC) $(FLAGS) -c logic.c
-
 buffer.o:
 	$(CC) $(FLAGS) -c buffer.c
+
+proxy.o:
+	$(CC) $(FLAGS) -c proxy.c
 
 
 clean:

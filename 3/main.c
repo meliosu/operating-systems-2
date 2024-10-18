@@ -12,6 +12,7 @@
 
 #include "log.h"
 #include "net.h"
+#include "proxy.h"
 #include "sieve.h"
 
 #define CACHE_SIZE 1024
@@ -104,7 +105,12 @@ int main(int argc, char **argv) {
             INFO("connection");
         }
 
-        pthread_create(&tid, &attr, NULL, NULL);
+        client_ctx_t *ctx = malloc(sizeof(client_ctx_t));
+
+        ctx->client = conn;
+        ctx->cache = &cache;
+
+        pthread_create(&tid, &attr, client_thread, ctx);
     }
 
     INFO("exiting...");
