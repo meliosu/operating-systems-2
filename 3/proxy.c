@@ -4,8 +4,11 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <llhttp.h>
+
 #include "buffer.h"
 #include "http.h"
+#include "log.h"
 #include "net.h"
 #include "proxy.h"
 #include "sieve.h"
@@ -17,6 +20,26 @@
 static int is_allowed_request(http_request_t *request) {
     return request->method == HTTP_GET &&
            (request->version.major == 1 && request->version.minor == 0);
+}
+
+static void log_request(http_request_t *request) {
+    INFO(
+        "request: %s %s HTTP/%d.%d",
+        llhttp_method_name(request->method),
+        request->url,
+        request->version.major,
+        request->version.minor
+    );
+}
+
+static void log_response(http_response_t *response) {
+    INFO(
+        "response: HTTP/%d.%d %d %s",
+        response->version.major,
+        response->version.minor,
+        response->status,
+        llhttp_status_name(response->status)
+    )
 }
 
 static int send_from_cache(int client, stream_t *stream) {
@@ -34,7 +57,7 @@ static int send_from_cache(int client, stream_t *stream) {
             return -1;
         }
 
-        if (stream->complete) {
+        if (stream->complete && stream->len == sent) {
             pthread_mutex_unlock(&stream->mutex);
             break;
         }
@@ -85,15 +108,17 @@ int client_handler(int client, cache_t *cache) {
             return -1;
         }
 
-        rcvd += n;
-
-        int err = http_request_parse(&request, request_buffer, rcvd);
+        int err = http_request_parse(&request, request_buffer + rcvd, n);
         if (err == -1) {
             free(request_buffer);
             close(client);
             return -1;
         }
+
+        rcvd += n;
     }
+
+    log_request(&request);
 
     if (!is_allowed_request(&request)) {
         free(request_buffer);
@@ -186,22 +211,26 @@ int server_handler(int remote, stream_t *stream) {
 
     while (!response.finished) {
         if (stream->buffer->cap == stream->len) {
+            pthread_mutex_lock(&stream->mutex);
+
             buffer_t *old = stream->buffer;
             buffer_t *new = buffer_create(old->cap * 2);
             memcpy(&new->buf, &old->buf, stream->len);
-            atomic_store((atomic_long *)&stream->buffer, (long)new);
+            stream->buffer = new;
             buffer_destroy(old);
+
+            pthread_mutex_unlock(&stream->mutex);
         }
 
         int n = read(
             remote,
-            stream->buffer + stream->len,
+            stream->buffer->buf + stream->len,
             stream->buffer->cap - stream->len
         );
 
         if (n > 0) {
             err = http_response_parse(
-                &response, stream->buffer->buf, stream->len + n
+                &response, stream->buffer->buf + stream->len, n
             );
         }
 
@@ -236,6 +265,8 @@ int server_handler(int remote, stream_t *stream) {
             break;
         }
     }
+
+    log_response(&response);
 
     close(remote);
     stream_destroy(stream);
