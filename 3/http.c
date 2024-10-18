@@ -5,7 +5,6 @@
 #include <llhttp.h>
 
 #include "http.h"
-#include "log.h"
 
 static int on_method_complete(llhttp_t *parser) {
     http_request_t *request = parser->data;
@@ -78,16 +77,8 @@ void http_response_init(http_response_t *response) {
 
 int http_request_parse(http_request_t *request, char *buf, int len) {
     llhttp_errno_t err = llhttp_execute(&request->parser, buf, len);
-    if (err == HPE_PAUSED_UPGRADE) {
-        return -2;
-    }
-
     if (err != HPE_OK) {
         return -1;
-    }
-
-    if (!request->finished) {
-        return -2;
     }
 
     return 0;
@@ -97,10 +88,6 @@ int http_response_parse(http_response_t *response, char *buf, int len) {
     llhttp_errno_t err = llhttp_execute(&response->parser, buf, len);
     if (err != HPE_OK) {
         return -1;
-    }
-
-    if (!response->finished) {
-        return -2;
     }
 
     return 0;
