@@ -1,6 +1,8 @@
 #ifndef PROXY_LOG_H
 #define PROXY_LOG_H
 
+#include <stdio.h>
+
 #define LOG_LEVEL_OFF 0
 #define LOG_LEVEL_ERROR 1
 #define LOG_LEVEL_WARN 2
