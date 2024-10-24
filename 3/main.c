@@ -17,6 +17,7 @@
 
 #define CACHE_SIZE 1024
 #define BACKLOG 10
+#define DEFAULT_PORT 1080
 
 #define panic(fmt, args...)                                                    \
     {                                                                          \
@@ -57,7 +58,7 @@ int main(int argc, char **argv) {
 
     int port = get_port(argc, argv);
     if (port < 0) {
-        panic("please provide port number");
+        port = DEFAULT_PORT;
     }
 
     err = register_interrupt_handler();
@@ -71,6 +72,8 @@ int main(int argc, char **argv) {
     if (server < 0) {
         panic("failed to create listening socket: %s", strerror(errno));
     }
+
+    INFO("listening on port %d", port);
 
     cache_t cache;
     sieve_cache_init(&cache, CACHE_SIZE);
@@ -101,8 +104,6 @@ int main(int argc, char **argv) {
 
         if (addr_str) {
             INFO("connection: %s", addr_str);
-        } else {
-            INFO("connection");
         }
 
         client_ctx_t *ctx = malloc(sizeof(client_ctx_t));
