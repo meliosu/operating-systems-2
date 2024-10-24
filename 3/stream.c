@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "buffer.h"
+#include "log.h"
 #include "stream.h"
 
 stream_t *stream_create(int cap) {
@@ -19,6 +20,8 @@ stream_t *stream_create(int cap) {
 
 void stream_destroy(stream_t *stream) {
     if (atomic_fetch_sub(&stream->refcount, 1) == 1) {
+        TRACE("freeing stream");
+
         pthread_mutex_destroy(&stream->mutex);
         pthread_cond_destroy(&stream->cond);
         buffer_destroy(stream->buffer);
@@ -27,6 +30,7 @@ void stream_destroy(stream_t *stream) {
 }
 
 stream_t *stream_clone(stream_t *in) {
-    atomic_fetch_add(&in->refcount, 1);
+    int rc = atomic_fetch_add(&in->refcount, 1);
+    TRACE("stream rc: %d", rc);
     return in;
 }
