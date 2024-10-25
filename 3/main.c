@@ -78,8 +78,6 @@ int main(int argc, char **argv) {
     cache_t cache;
     sieve_cache_init(&cache, CACHE_SIZE);
 
-    char addrbuf[INET_ADDRSTRLEN];
-
     struct sockaddr_in addr;
     socklen_t addrlen;
 
@@ -99,19 +97,17 @@ int main(int argc, char **argv) {
             panic("error accepting connection: %s", strerror(errno));
         }
 
-        const char *addr_str =
-            inet_ntop(AF_INET, &addr.sin_addr, addrbuf, INET_ADDRSTRLEN);
-
-        if (addr_str) {
-            INFO("connection: %s", addr_str);
-        }
-
         client_ctx_t *ctx = malloc(sizeof(client_ctx_t));
 
         ctx->client = conn;
         ctx->cache = &cache;
 
-        pthread_create(&tid, &attr, client_thread, ctx);
+        err = pthread_create(&tid, &attr, client_thread, ctx);
+        if (err) {
+            ERROR("error creating thread for client: %s", strerror(err));
+            close(conn);
+            free(ctx);
+        }
     }
 
     INFO("exiting...");

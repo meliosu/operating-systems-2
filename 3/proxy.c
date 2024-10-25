@@ -109,7 +109,9 @@ int client_handler(int client, cache_t *cache) {
         }
 
         int err = http_request_parse(&request, request_buffer + rcvd, n);
-        if (err == -1) {
+        if (err) {
+            ERROR("error parsing request");
+
             free(request_buffer);
             close(client);
             return -1;
@@ -121,6 +123,8 @@ int client_handler(int client, cache_t *cache) {
     log_request(&request);
 
     if (!is_allowed_request(&request)) {
+        WARN("rejected request with wrong version or method");
+
         free(request_buffer);
         close(client);
         return -1;
@@ -193,7 +197,16 @@ int client_handler(int client, cache_t *cache) {
         ctx->remote = remote;
         ctx->stream = stream_clone(inserted);
 
-        pthread_create(&tid, &attr, server_thread, ctx);
+        err = pthread_create(&tid, &attr, server_thread, ctx);
+        if (err) {
+            ERROR("error creating thread for remote: %s", strerror(err));
+
+            stream_destroy(inserted);
+            stream_destroy(inserted);
+            free(ctx);
+            return err;
+        }
+
         pthread_attr_destroy(&attr);
 
         err = send_from_cache(client, inserted);
@@ -232,6 +245,10 @@ int server_handler(int remote, stream_t *stream) {
             err = http_response_parse(
                 &response, stream->buffer->buf + stream->len, n
             );
+
+            if (err) {
+                ERROR("error parsing response");
+            }
         }
 
         pthread_mutex_lock(&stream->mutex);
