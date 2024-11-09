@@ -4,6 +4,8 @@
 #include <sched.h>
 #include <setjmp.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
+#include <syscall.h>
 #include <threads.h>
 #include <unistd.h>
 
@@ -15,11 +17,32 @@
 
 thread_local struct thread_ctx *self;
 
-void *stack_from_ctx(struct thread_ctx *ctx) {
+static void *stack_from_ctx(struct thread_ctx *ctx) {
     return (void *)ctx + sizeof(struct thread_ctx) - STACK_SIZE;
 }
 
-int thread_entry(void *arg) {
+[[noreturn]] static void exit_thread(long status) {
+    long stack_base = (long)stack_from_ctx(self);
+
+    asm volatile("movq %0, %%rdi\n"
+                 "movq %1, %%rsi\n"
+                 "movq %2, %%rax\n"
+                 "syscall\n" // munmap(stack_base, STACK_SIZE)
+                 "movq %3, %%rdi\n"
+                 "movq %4, %%rax\n"
+                 "syscall\n" // exit(status)
+                 :
+                 : "r"(stack_base),
+                   "r"((long)STACK_SIZE),
+                   "r"((long)SYS_munmap),
+                   "r"(status),
+                   "r"((long)SYS_exit)
+                 : "rdi", "rsi", "rax");
+
+    __builtin_unreachable();
+}
+
+static int thread_entry(void *arg) {
     self = arg;
 
     int jumped = setjmp(self->jmp);
@@ -33,8 +56,7 @@ int thread_entry(void *arg) {
     }
 
     if (self->detached) {
-        void *stack = stack_from_ctx(self);
-        munmap(stack, STACK_SIZE);
+        exit_thread(0);
     }
 
     return 0;
