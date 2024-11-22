@@ -25,6 +25,7 @@ void test_partial_request() {
     }
 
     assert(request.finished == 1);
+    assert(request.method == HTTP_GET);
     assert(request.version.major == 1 && request.version.minor == 0);
     assert(strcmp("http://google.com", request.url) == 0);
 }
@@ -34,14 +35,6 @@ void test_partial_response() {
 
     http_response_t response;
     http_response_init(&response);
-
-    /*const char *parts[] = {*/
-    /*    "HTT",*/
-    /*    "P/1",*/
-    /*    ".0",*/
-    /*    " 20",*/
-    /*    "0 OK\r\n\r\n",*/
-    /*};*/
 
     const char *parts[] = {
         "HTT",
@@ -70,4 +63,6 @@ void test_partial_response() {
 int main() {
     test_partial_request();
     test_partial_response();
+
+    fprintf(stderr, "SUCCESS!\n");
 }
