@@ -8,7 +8,7 @@
 #include "stream.h"
 
 void sieve_cache_init(cache_t *cache, int cap) {
-    hashmap_init(&cache->map, cap * 2);
+    hashmap_init(&cache->map);
     pthread_rwlock_init(&cache->lock, NULL);
 
     cache->len = 0;
@@ -26,6 +26,7 @@ void sieve_cache_destroy(cache_t *cache) {
     while (entry) {
         cache_entry_t *next = entry->next;
         stream_destroy(entry->value);
+        free(entry->key);
         free(entry);
         entry = next;
     }

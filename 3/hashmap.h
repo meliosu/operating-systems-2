@@ -8,10 +8,11 @@ typedef struct hashmap_entry {
 
 typedef struct hashmap {
     int len;
+    int cap;
     hashmap_entry_t *entries;
 } hashmap_t;
 
-void hashmap_init(hashmap_t *map, int len);
+void hashmap_init(hashmap_t *map);
 void hashmap_destroy(hashmap_t *map);
 
 void hashmap_insert(hashmap_t *map, char *key, void *value);
