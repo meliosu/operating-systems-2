@@ -94,7 +94,8 @@ int main(int argc, char **argv) {
                 continue;
             }
 
-            panic("error accepting connection: %s", strerror(errno));
+            log_error("error accepting connection: %s", strerror(errno));
+            continue;
         }
 
         client_ctx_t *ctx = malloc(sizeof(client_ctx_t));
