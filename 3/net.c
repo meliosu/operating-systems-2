@@ -12,7 +12,7 @@ int net_connect_remote(char *name, char *service) {
     int err;
 
     if (!service) {
-        service = "80";
+        service = "http";
     }
 
     struct addrinfo hints = {

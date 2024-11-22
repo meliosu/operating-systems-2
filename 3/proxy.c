@@ -148,7 +148,7 @@ int client_handler(int client, cache_t *cache) {
         return -1;
     }
 
-    int remote = net_connect_remote(host, "80");
+    int remote = net_connect_remote(host, "http");
     if (remote < 0) {
         free(request_buffer);
         close(client);
