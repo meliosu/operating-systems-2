@@ -87,18 +87,14 @@ static int send_from_cache(int client, stream_t *stream) {
     return SUCCESS;
 }
 
-int client_handler(int client, cache_t *cache) {
-    int err;
-
-    http_request_t request;
-    http_request_init(&request);
-
+static int
+recv_request(http_request_t *request, void **buffer, int *len, int client) {
     int request_bufsize = REQUEST_BUFSIZE;
     void *request_buffer = malloc(request_bufsize);
 
     int rcvd = 0;
 
-    while (!request.finished) {
+    while (!request->finished) {
         if (rcvd == request_bufsize) {
             request_bufsize *= 2;
             request_buffer = realloc(request_buffer, request_bufsize);
@@ -107,65 +103,112 @@ int client_handler(int client, cache_t *cache) {
         int n = read(client, request_buffer + rcvd, request_bufsize - rcvd);
         if (n <= 0) {
             free(request_buffer);
-            close(client);
             return ERROR;
         }
 
-        int err = http_request_parse(&request, request_buffer + rcvd, n);
+        int err = http_request_parse(request, request_buffer + rcvd, n);
         if (err) {
             log_error("error parsing request");
-
             free(request_buffer);
-            close(client);
             return ERROR;
         }
 
         rcvd += n;
     }
 
+    *buffer = request_buffer;
+    *len = rcvd;
+
+    return SUCCESS;
+}
+
+static int connect_from_url(char *url) {
+    char *host = http_host_from_url(url);
+    if (!host) {
+        return ERROR;
+    }
+
+    int remote = net_connect_remote(host, "http");
+    if (remote < 0) {
+        free(host);
+        return ERROR;
+    }
+
+    free(host);
+    return remote;
+}
+
+static int create_detached_thread(void *(*start)(void *), void *arg) {
+    int err;
+
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+    pthread_t tid;
+
+    err = pthread_create(&tid, &attr, start, arg);
+    if (err) {
+        log_error("error creating thread: %s", strerror(err));
+        pthread_attr_destroy(&attr);
+        return ERROR;
+    }
+
+    pthread_attr_destroy(&attr);
+    return SUCCESS;
+}
+
+int client_handler(int client, cache_t *cache) {
+    int err;
+    void *request_buffer;
+    int rcvd;
+    http_request_t request;
+    http_request_init(&request);
+
+    err = recv_request(&request, &request_buffer, &rcvd, client);
+    if (err != SUCCESS) {
+        close(client);
+        return ERROR;
+    }
+
     log_request(&request);
 
     if (!is_allowed_request(&request)) {
         log_warn("rejected request with wrong version or method");
-
         free(request_buffer);
         close(client);
         return ERROR;
     }
 
     stream_t *cached;
-    sieve_cache_lookup(cache, request.url, &cached);
+    stream_t *inserted = stream_create(RESPONSE_BUFSIZE);
+    sieve_cache_lookup_or_insert(cache, request.url, &cached, inserted);
 
     if (cached) {
         free(request_buffer);
+        stream_destroy(inserted);
         err = send_from_cache(client, cached);
         close(client);
         stream_destroy(cached);
         return err;
     }
 
-    char *host = http_host_from_url(request.url);
-    if (!host) {
-        free(request_buffer);
-        close(client);
-        return ERROR;
-    }
-
-    int remote = net_connect_remote(host, "http");
+    int remote = connect_from_url(request.url);
     if (remote < 0) {
+        stream_signal_error(inserted);
+        stream_destroy(inserted);
         free(request_buffer);
         close(client);
         return ERROR;
     }
-
-    free(host);
 
     int sent = 0;
-
     while (sent < rcvd) {
         int n = write(remote, request_buffer + sent, rcvd - sent);
 
         if (n <= 0) {
+            stream_signal_error(inserted);
+            stream_destroy(inserted);
             free(request_buffer);
             close(client);
             close(remote);
@@ -177,46 +220,23 @@ int client_handler(int client, cache_t *cache) {
 
     free(request_buffer);
 
-    stream_t *looked_up;
-    stream_t *inserted = stream_create(RESPONSE_BUFSIZE);
-    sieve_cache_lookup_or_insert(cache, request.url, &looked_up, inserted);
+    server_ctx_t *ctx = malloc(sizeof(server_ctx_t));
+    ctx->remote = remote;
+    ctx->stream = stream_clone(inserted);
 
-    if (looked_up) {
-        close(remote);
+    err = create_detached_thread(server_thread, ctx);
+    if (err != SUCCESS) {
+        stream_signal_error(inserted);
         stream_destroy(inserted);
-        err = send_from_cache(client, looked_up);
-        close(client);
-        stream_destroy(looked_up);
-        return err;
-    } else {
-        pthread_attr_t attr;
-        pthread_t tid;
-
-        pthread_attr_init(&attr);
-        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-
-        server_ctx_t *ctx = malloc(sizeof(server_ctx_t));
-
-        ctx->remote = remote;
-        ctx->stream = stream_clone(inserted);
-
-        err = pthread_create(&tid, &attr, server_thread, ctx);
-        if (err) {
-            log_error("error creating thread for remote: %s", strerror(err));
-
-            stream_destroy(inserted);
-            stream_destroy(inserted);
-            free(ctx);
-            return ERROR;
-        }
-
-        pthread_attr_destroy(&attr);
-
-        err = send_from_cache(client, inserted);
-        close(client);
         stream_destroy(inserted);
-        return err;
+        free(ctx);
+        return ERROR;
     }
+
+    err = send_from_cache(client, inserted);
+    close(client);
+    stream_destroy(inserted);
+    return err;
 }
 
 int server_handler(int remote, stream_t *stream) {
@@ -280,14 +300,10 @@ int server_handler(int remote, stream_t *stream) {
         pthread_cond_broadcast(&stream->cond);
         pthread_mutex_unlock(&stream->mutex);
 
-        if (ret != SUCCESS) {
+        if (ret != SUCCESS || atomic_load(&stream->refcount) == 1) {
             close(remote);
             stream_destroy(stream);
             return ret;
-        }
-
-        if (atomic_load(&stream->refcount) == 1) {
-            break;
         }
     }
 

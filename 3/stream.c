@@ -6,6 +6,15 @@
 #include "log.h"
 #include "stream.h"
 
+void stream_signal_error(stream_t *stream) {
+    pthread_mutex_lock(&stream->mutex);
+
+    stream->erred = true;
+
+    pthread_cond_broadcast(&stream->cond);
+    pthread_mutex_unlock(&stream->mutex);
+}
+
 stream_t *stream_create(int cap) {
     stream_t *stream = malloc(sizeof(stream_t));
     stream->buffer = buffer_create(cap);
