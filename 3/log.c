@@ -5,9 +5,78 @@
 
 #include "log.h"
 
-#define FORMAT_SIZE 20
+#define TIME_BUFFER_SIZE 20
 
 int log_level = LOG_LEVEL_DEFAULT;
+
+static const char *labels[] = {
+    "ERROR",
+    "WARN ",
+    "INFO ",
+    "DEBUG",
+    "TRACE",
+};
+
+static const char *colors[] = {
+    COLOR_RED,
+    COLOR_YELLOW,
+    COLOR_DEFAULT,
+    COLOR_CYAN,
+    COLOR_MAGENTA,
+};
+
+static void log_gettime(char *buffer, int len) {
+    time_t now = time(NULL);
+    if (now < 0) {
+        buffer[0] = 0;
+        return;
+    }
+
+    struct tm *tm = localtime(&now);
+    if (!tm) {
+        buffer[0] = 0;
+        return;
+    }
+
+    if (!strftime(buffer, len, "[%d/%m/%y %H:%M:%S]", tm)) {
+        buffer[0] = 0;
+        return;
+    }
+}
+
+void _log(enum log_level level, const char *fmt, va_list args) {
+    char time[TIME_BUFFER_SIZE];
+    log_gettime(time, TIME_BUFFER_SIZE);
+
+    int info_len = snprintf(
+        NULL, 0, "%s %s%s%s ", time, colors[level], labels[level], COLOR_DEFAULT
+    );
+
+    va_list copy;
+    va_copy(copy, args);
+
+    int log_len = vsnprintf(NULL, 0, fmt, copy);
+
+    va_end(copy);
+
+    char *buffer = malloc(info_len + log_len + 1);
+
+    snprintf(
+        buffer,
+        info_len + 1,
+        "%s %s%s%s ",
+        time,
+        colors[level],
+        labels[level],
+        COLOR_DEFAULT
+    );
+
+    vsnprintf(buffer + info_len, log_len + 1, fmt, args);
+
+    fprintf(stderr, "%s\n", buffer);
+
+    free(buffer);
+}
 
 void log_init_logger() {
     char *level = getenv("PROXY_LOG");
@@ -27,27 +96,4 @@ void log_init_logger() {
             log_level = LOG_LEVEL_OFF;
         }
     }
-}
-
-char *log_gettime() {
-    thread_local static char buffer[FORMAT_SIZE];
-
-    time_t now;
-    if (time(&now) < 0) {
-        buffer[0] = 0;
-        return buffer;
-    }
-
-    struct tm *tm;
-    if (!(tm = localtime(&now))) {
-        buffer[0] = 0;
-        return buffer;
-    }
-
-    if (!strftime(buffer, FORMAT_SIZE, "[%d/%m/%y %H:%M:%S]", tm)) {
-        buffer[0] = 0;
-        return buffer;
-    }
-
-    return buffer;
 }

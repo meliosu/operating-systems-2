@@ -20,7 +20,7 @@ stream_t *stream_create(int cap) {
 
 void stream_destroy(stream_t *stream) {
     if (atomic_fetch_sub(&stream->refcount, 1) == 1) {
-        TRACE("freeing stream");
+        log_trace("freeing stream");
 
         pthread_mutex_destroy(&stream->mutex);
         pthread_cond_destroy(&stream->cond);
@@ -31,6 +31,6 @@ void stream_destroy(stream_t *stream) {
 
 stream_t *stream_clone(stream_t *in) {
     int rc = atomic_fetch_add(&in->refcount, 1);
-    TRACE("stream rc: %d", rc);
+    log_trace("stream rc: %d", rc);
     return in;
 }

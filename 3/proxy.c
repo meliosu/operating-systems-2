@@ -23,7 +23,7 @@ static int is_allowed_request(http_request_t *request) {
 }
 
 static void log_request(http_request_t *request) {
-    INFO(
+    log_info(
         "request: %s %s HTTP/%d.%d",
         llhttp_method_name(request->method),
         request->url,
@@ -33,13 +33,13 @@ static void log_request(http_request_t *request) {
 }
 
 static void log_response(http_response_t *response) {
-    INFO(
+    log_info(
         "response: HTTP/%d.%d %d %s",
         response->version.major,
         response->version.minor,
         response->status,
         llhttp_status_name(response->status)
-    )
+    );
 }
 
 static int send_from_cache(int client, stream_t *stream) {
@@ -110,7 +110,7 @@ int client_handler(int client, cache_t *cache) {
 
         int err = http_request_parse(&request, request_buffer + rcvd, n);
         if (err) {
-            ERROR("error parsing request");
+            log_error("error parsing request");
 
             free(request_buffer);
             close(client);
@@ -123,7 +123,7 @@ int client_handler(int client, cache_t *cache) {
     log_request(&request);
 
     if (!is_allowed_request(&request)) {
-        WARN("rejected request with wrong version or method");
+        log_warn("rejected request with wrong version or method");
 
         free(request_buffer);
         close(client);
@@ -199,7 +199,7 @@ int client_handler(int client, cache_t *cache) {
 
         err = pthread_create(&tid, &attr, server_thread, ctx);
         if (err) {
-            ERROR("error creating thread for remote: %s", strerror(err));
+            log_error("error creating thread for remote: %s", strerror(err));
 
             stream_destroy(inserted);
             stream_destroy(inserted);
@@ -247,7 +247,7 @@ int server_handler(int remote, stream_t *stream) {
             );
 
             if (err) {
-                ERROR("error parsing response");
+                log_error("error parsing response");
             }
         }
 

@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
         panic("failed to create listening socket: %s", strerror(errno));
     }
 
-    INFO("listening on port %d", port);
+    log_info("listening on port %d", port);
 
     cache_t cache;
     sieve_cache_init(&cache, CACHE_SIZE);
@@ -104,13 +104,13 @@ int main(int argc, char **argv) {
 
         err = pthread_create(&tid, &attr, client_thread, ctx);
         if (err) {
-            ERROR("error creating thread for client: %s", strerror(err));
+            log_error("error creating thread for client: %s", strerror(err));
             close(conn);
             free(ctx);
         }
     }
 
-    INFO("exiting...");
+    log_info("exiting...");
 
     pthread_attr_destroy(&attr);
     close(server);
