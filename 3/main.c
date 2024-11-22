@@ -1,5 +1,4 @@
 #include <arpa/inet.h>
-#include <asm-generic/socket.h>
 #include <errno.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -19,11 +18,13 @@
 #define BACKLOG 10
 #define DEFAULT_PORT 1080
 
-#define panic(fmt, args...)                                                    \
-    {                                                                          \
-        printf(fmt "\n", ##args);                                              \
-        exit(1);                                                               \
-    }
+__attribute((format(printf, 1, 2))) static void panic(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    exit(EXIT_FAILURE);
+}
 
 int should_quit = 0;
 
@@ -63,14 +64,14 @@ int main(int argc, char **argv) {
 
     err = register_interrupt_handler();
     if (err) {
-        panic("failed to register interrupt handler: %s", strerror(errno));
+        panic("failed to register interrupt handler: %s\n", strerror(errno));
     }
 
     signal(SIGPIPE, SIG_IGN);
 
     int server = net_listen(port, BACKLOG);
     if (server < 0) {
-        panic("failed to create listening socket: %s", strerror(errno));
+        panic("failed to create listening socket: %s\n", strerror(errno));
     }
 
     log_info("listening on port %d", port);
