@@ -14,7 +14,9 @@ main: $(OBJECTS) libllhttp
 $(OBJECTS): %.o: %.c 
 	$(CC) $(FLAGS) -c $<
 
-libllhttp:
+libllhttp: ./llhttp/build/libllhttp.a
+
+./llhttp/build/libllhttp.a:
 	(cd llhttp && npm ci && make)
 
 tests/http: tests/http.c http.o libllhttp
