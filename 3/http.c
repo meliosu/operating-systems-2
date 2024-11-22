@@ -14,7 +14,16 @@ static int on_method_complete(llhttp_t *parser) {
 
 static int on_url(llhttp_t *parser, const char *url, unsigned long len) {
     http_request_t *request = parser->data;
-    request->url = strndup(url, len);
+
+    if (request->url) {
+        int curr_len = strlen(request->url);
+        request->url = realloc(request->url, curr_len + len + 1);
+        memcpy(request->url + curr_len, url, len);
+        request->url[curr_len + len] = 0;
+    } else {
+        request->url = strndup(url, len);
+    }
+
     return 0;
 }
 

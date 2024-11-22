@@ -34,6 +34,8 @@ void http_response_init(http_response_t *response);
 int http_request_parse(http_request_t *request, char *buf, int len);
 int http_response_parse(http_response_t *response, char *buf, int len);
 
+int http_response_finish(http_response_t *response);
+
 char *http_host_from_url(char *url);
 
 #endif /* PROXY_HTTP_H */
