@@ -225,28 +225,36 @@ int server_handler(int remote, stream_t *stream) {
     http_response_t response;
     http_response_init(&response);
 
-    while (!response.finished) {
-        if (stream->buffer->cap == stream->len) {
-            pthread_mutex_lock(&stream->mutex);
+    while (1) {
+        pthread_mutex_lock(&stream->mutex);
 
+        if (response.finished) {
+            pthread_mutex_unlock(&stream->mutex);
+            break;
+        }
+
+        if (stream->buffer->cap == stream->len) {
             buffer_t *old = stream->buffer;
             buffer_t *new = buffer_create(old->cap * 2);
             memcpy(&new->buf, &old->buf, stream->len);
             stream->buffer = new;
             buffer_destroy(old);
-
-            pthread_mutex_unlock(&stream->mutex);
         }
+
+        buffer_t *stream_buffer = stream->buffer;
+        int stream_len = stream->len;
+
+        pthread_mutex_unlock(&stream->mutex);
 
         int n = read(
             remote,
-            stream->buffer->buf + stream->len,
-            stream->buffer->cap - stream->len
+            stream_buffer->buf + stream_len,
+            stream_buffer->cap - stream_len
         );
 
         if (n > 0) {
             err = http_response_parse(
-                &response, stream->buffer->buf + stream->len, n
+                &response, stream_buffer->buf + stream_len, n
             );
 
             if (err) {
@@ -256,12 +264,9 @@ int server_handler(int remote, stream_t *stream) {
 
         pthread_mutex_lock(&stream->mutex);
 
-        int ret = 0;
+        int ret = SUCCESS;
 
-        if (n <= 0) {
-            stream->erred = true;
-            ret = ERROR;
-        } else if (err == -1) {
+        if (n <= 0 || err == -1) {
             stream->erred = true;
             ret = ERROR;
         }
@@ -275,7 +280,7 @@ int server_handler(int remote, stream_t *stream) {
         pthread_cond_broadcast(&stream->cond);
         pthread_mutex_unlock(&stream->mutex);
 
-        if (ret) {
+        if (ret != SUCCESS) {
             close(remote);
             stream_destroy(stream);
             return ret;
