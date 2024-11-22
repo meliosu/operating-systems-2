@@ -17,6 +17,9 @@
 #define REQUEST_BUFSIZE (32 * 1024)
 #define RESPONSE_BUFSIZE (128 * 1024)
 
+#define ERROR -1
+#define SUCCESS 0
+
 static int is_allowed_request(http_request_t *request) {
     return request->method == HTTP_GET &&
            (request->version.major == 1 && request->version.minor == 0);
@@ -54,7 +57,7 @@ static int send_from_cache(int client, stream_t *stream) {
 
         if (stream->erred) {
             pthread_mutex_unlock(&stream->mutex);
-            return -1;
+            return ERROR;
         }
 
         if (stream->complete && stream->len == sent) {
@@ -72,7 +75,7 @@ static int send_from_cache(int client, stream_t *stream) {
 
             if (n <= 0) {
                 buffer_destroy(buffer);
-                return -1;
+                return ERROR;
             }
 
             sent += n;
@@ -81,7 +84,7 @@ static int send_from_cache(int client, stream_t *stream) {
         buffer_destroy(buffer);
     }
 
-    return 0;
+    return SUCCESS;
 }
 
 int client_handler(int client, cache_t *cache) {
@@ -105,7 +108,7 @@ int client_handler(int client, cache_t *cache) {
         if (n <= 0) {
             free(request_buffer);
             close(client);
-            return -1;
+            return ERROR;
         }
 
         int err = http_request_parse(&request, request_buffer + rcvd, n);
@@ -114,7 +117,7 @@ int client_handler(int client, cache_t *cache) {
 
             free(request_buffer);
             close(client);
-            return -1;
+            return ERROR;
         }
 
         rcvd += n;
@@ -127,7 +130,7 @@ int client_handler(int client, cache_t *cache) {
 
         free(request_buffer);
         close(client);
-        return -1;
+        return ERROR;
     }
 
     stream_t *cached;
@@ -145,14 +148,14 @@ int client_handler(int client, cache_t *cache) {
     if (!host) {
         free(request_buffer);
         close(client);
-        return -1;
+        return ERROR;
     }
 
     int remote = net_connect_remote(host, "http");
     if (remote < 0) {
         free(request_buffer);
         close(client);
-        return -1;
+        return ERROR;
     }
 
     free(host);
@@ -166,7 +169,7 @@ int client_handler(int client, cache_t *cache) {
             free(request_buffer);
             close(client);
             close(remote);
-            return -1;
+            return ERROR;
         }
 
         sent += n;
@@ -204,7 +207,7 @@ int client_handler(int client, cache_t *cache) {
             stream_destroy(inserted);
             stream_destroy(inserted);
             free(ctx);
-            return err;
+            return ERROR;
         }
 
         pthread_attr_destroy(&attr);
@@ -257,10 +260,10 @@ int server_handler(int remote, stream_t *stream) {
 
         if (n <= 0) {
             stream->erred = true;
-            ret = -1;
+            ret = ERROR;
         } else if (err == -1) {
             stream->erred = true;
-            ret = -1;
+            ret = ERROR;
         }
 
         stream->len += n;
@@ -287,7 +290,7 @@ int server_handler(int remote, stream_t *stream) {
 
     close(remote);
     stream_destroy(stream);
-    return 0;
+    return SUCCESS;
 }
 
 void *client_thread(void *arg) {
