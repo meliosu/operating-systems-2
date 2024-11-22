@@ -245,13 +245,8 @@ int server_handler(int remote, stream_t *stream) {
     http_response_t response;
     http_response_init(&response);
 
-    while (1) {
+    while (!response.finished) {
         pthread_mutex_lock(&stream->mutex);
-
-        if (response.finished) {
-            pthread_mutex_unlock(&stream->mutex);
-            break;
-        }
 
         if (stream->buffer->cap == stream->len) {
             buffer_t *old = stream->buffer;
