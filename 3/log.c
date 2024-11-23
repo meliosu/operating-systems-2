@@ -7,7 +7,7 @@
 
 #define TIME_BUFFER_SIZE 20
 
-int log_level = LOG_LEVEL_DEFAULT;
+enum log_level log_level = LOG_LEVEL_DEFAULT;
 
 static const char *labels[] = {
     "ERROR",

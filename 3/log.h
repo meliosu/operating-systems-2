@@ -20,7 +20,7 @@ enum log_level {
     LOG_LEVEL_DEFAULT = LOG_LEVEL_INFO,
 };
 
-extern int log_level;
+extern enum log_level log_level;
 
 void log_init_logger();
 void _log(enum log_level level, const char *fmt, va_list args);
