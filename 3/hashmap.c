@@ -39,6 +39,7 @@ void hashmap_destroy(hashmap_t *map) {
 }
 
 void hashmap_insert(hashmap_t *map, char *key, void *value) {
+    // ensure that map has more capacity the
     if (map->len >= map->cap / 2) {
         hashmap_grow(map);
     }
@@ -66,6 +67,8 @@ void hashmap_get(hashmap_t *map, char *key, void **value) {
 
     uint64_t h = hash(key, strlen(key));
 
+    // No infinite loop since map->len < map->cap is always satisfied
+    // due to grow in hashmap_insert
     for (int idx = h % map->cap; 1; idx = (idx + 1) % map->cap) {
         hashmap_entry_t *entry = &map->entries[idx];
 
